@@ -1,15 +1,17 @@
-package didparser
+package did
 
 import (
 	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/lestrrat-go/jwx/jwk"
+	"github.com/nuts-foundation/golang-didparser/marshaling"
+	"github.com/nuts-foundation/golang-didparser/pkg"
 )
 
 // Document represents a DID Document as specified by the DID Core specification (https://www.w3.org/TR/did-core/).
 type Document struct {
-	Context            []URI                      `json:"@context"`
+	Context            []pkg.URI                  `json:"@context"`
 	ID                 DID                        `json:"id"`
 	Controller         []DID                      `json:"controller,omitempty"`
 	VerificationMethod []VerificationMethod       `json:"verificationMethod,omitempty"`
@@ -87,7 +89,7 @@ func (v *VerificationMethod) UnmarshalJSON(bytes []byte) error {
 
 func (d *Document) UnmarshalJSON(b []byte) error {
 	type Alias Document
-	normalizedDoc, err := normalizeDocument(b)
+	normalizedDoc, err := marshaling.NormalizeDocument(b, "@context", "controller")
 	if err != nil {
 		return err
 	}
@@ -128,23 +130,4 @@ func resolveVerificationRelationship(reference DID, methods []VerificationMethod
 		}
 	}
 	return nil
-}
-
-// normalizeDocument accepts a JSON DID document, parses it and converts all single values into an array with a single item.
-// This is important to make unmarshalling to Go structs easier.
-func normalizeDocument(b []byte) ([]byte, error) {
-	tmp := struct {
-		Context            singleOrArray `json:"@context"`
-		ID                 interface{}   `json:"id"`
-		Controller         singleOrArray `json:"controller,omitempty"`
-		VerificationMethod []interface{} `json:"verificationMethod,omitempty"`
-		Authentication     []interface{} `json:"authentication,omitempty"`
-		AssertionMethod    []interface{} `json:"assertionMethod,omitempty"`
-		Service            []interface{} `json:"service,omitempty"`
-	}{}
-	err := json.Unmarshal(b, &tmp)
-	if err != nil {
-		return nil, err
-	}
-	return json.Marshal(tmp)
 }
