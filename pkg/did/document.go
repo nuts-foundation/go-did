@@ -5,11 +5,14 @@ import (
 	"errors"
 	"fmt"
 	"github.com/lestrrat-go/jwx/jwk"
+	"github.com/nuts-foundation/did/marshal"
+	"github.com/nuts-foundation/did/pkg"
+	"net/url"
 )
 
 // Document represents a DID Document as specified by the DID Core specification (https://www.w3.org/TR/did-core/).
 type Document struct {
-	Context            []URI                      `json:"@context"`
+	Context            []pkg.URI                  `json:"context"`
 	ID                 DID                        `json:"id"`
 	Controller         []DID                      `json:"controller,omitempty"`
 	VerificationMethod []VerificationMethod       `json:"verificationMethod,omitempty"`
@@ -22,6 +25,58 @@ type Document struct {
 type Service struct {
 	ID   DID
 	Type string
+	// EndpointURL contains the service endpoint URLs if set. If this field is empty, the service should contain
+	// properties as serviceEndpoint (see EndpointProperties). You can also check this using IsURL.
+	EndpointURL []url.URL `json:"-"`
+	// EndpointProperties contains the service endpoint proeprties if set. If this field is empty, the service should contain
+	// an absolute URL (or multiple) as serviceEndpoint (see EndpointURL). You can also check this using IsURL.
+	EndpointProperties map[string]interface{} `json:"-"`
+}
+
+// IsURL returns whether the service endpoint contains an absolute URL or properties. If it returns true, `EndpointURL`
+// contains the value to be used. Otherwise applications should use `EndpointProperties` directly or unmarshal it into
+// a more specific type using `UnmarshalEndpoint`.
+func (s Service) IsURL() bool {
+	return len(s.EndpointURL) > 0
+}
+
+func (s *Service) UnmarshalJSON(data []byte) error {
+	normalizedData, err := marshal.NormalizeDocument(data, append(standardAliases, pluralContext, marshal.PluralValueOrMap(serviceEndpointKey)))
+	if err != nil {
+		return err
+	}
+	type alias Service
+	var result alias
+	if err := json.Unmarshal(normalizedData, &result); err != nil {
+		return err
+	}
+	asMap := make(map[string]interface{})
+	if err := json.Unmarshal(normalizedData, &asMap); err != nil {
+		return err
+	}
+	if asMap[serviceEndpointKey] != nil {
+		if absoluteEPs, ok := asMap[serviceEndpointKey].([]interface{}); ok {
+			if result.EndpointURL, err = parseURLs(absoluteEPs); err != nil {
+				return fmt.Errorf("invalid service endpoint URL: %w", err)
+			}
+		} else {
+			result.EndpointProperties = asMap[serviceEndpointKey].(map[string]interface{})
+		}
+	}
+	*s = (Service)(result)
+	return nil
+}
+
+// Unmarshal unmarshals the endpoint properties into a domain-specific type. Can only be used when `IsURL` returns false.
+func (s Service) UnmarshalEndpoint(target interface{}) error {
+	if s.IsURL() {
+		return errors.New("service endpoint contains a URL so can't be unmarshalled")
+	}
+	if asJSON, err := json.Marshal(s.EndpointProperties); err != nil {
+		return err
+	} else {
+		return json.Unmarshal(asJSON, target)
+	}
 }
 
 // VerificationMethod represents a DID Verification Method as specified by the DID Core specification (https://www.w3.org/TR/did-core/#verification-methods).
@@ -38,7 +93,7 @@ func (v VerificationMethod) JWK() jwk.Key {
 	return v.parsedJWK
 }
 
-// VerificationRelationship represents the usage of a VerificationMethod  e.g. in authentication, assertionMethod, or keyAgreement.
+// VerificationRelationship represents the usage of a VerificationMethod e.g. in authentication, assertionMethod, or keyAgreement.
 type VerificationRelationship struct {
 	*VerificationMethod
 	reference DID
@@ -87,7 +142,9 @@ func (v *VerificationMethod) UnmarshalJSON(bytes []byte) error {
 
 func (d *Document) UnmarshalJSON(b []byte) error {
 	type Alias Document
-	normalizedDoc, err := normalizeDocument(b)
+	normalizedDoc, err := marshal.NormalizeDocument(b, append(standardAliases, pluralContext,
+		marshal.Plural(controllerKey), marshal.Plural(verificationMethodKey), marshal.Plural(authenticationKey),
+		marshal.Plural(assertionMethodKey), marshal.Plural(serviceKey)))
 	if err != nil {
 		return err
 	}
@@ -99,10 +156,10 @@ func (d *Document) UnmarshalJSON(b []byte) error {
 	*d = (Document)(doc)
 
 	if err = resolveVerificationRelationships(d.Authentication, d.VerificationMethod); err != nil {
-		return fmt.Errorf("unable to resolve all 'authentication' references: %w", err)
+		return fmt.Errorf("unable to resolve all '%s' references: %w", authenticationKey, err)
 	}
 	if err = resolveVerificationRelationships(d.AssertionMethod, d.VerificationMethod); err != nil {
-		return fmt.Errorf("unable to resolve all could not resolve all 'assertionMethod' references: %w", err)
+		return fmt.Errorf("unable to resolve all '%s' references: %w", assertionMethodKey, err)
 	}
 	return nil
 }
@@ -113,7 +170,7 @@ func resolveVerificationRelationships(relationships []VerificationRelationship, 
 			continue
 		}
 		if resolved := resolveVerificationRelationship(relationship.reference, methods); resolved == nil {
-			return fmt.Errorf("unable to resolve verificationMethod: %s", relationship.reference)
+			return fmt.Errorf("unable to resolve %s: %s", verificationMethodKey, relationship.reference)
 		} else {
 			relationships[i] = *resolved
 		}
@@ -128,23 +185,4 @@ func resolveVerificationRelationship(reference DID, methods []VerificationMethod
 		}
 	}
 	return nil
-}
-
-// normalizeDocument accepts a JSON DID document, parses it and converts all single values into an array with a single item.
-// This is important to make unmarshalling to Go structs easier.
-func normalizeDocument(b []byte) ([]byte, error) {
-	tmp := struct {
-		Context            singleOrArray `json:"@context"`
-		ID                 interface{}   `json:"id"`
-		Controller         singleOrArray `json:"controller,omitempty"`
-		VerificationMethod []interface{} `json:"verificationMethod,omitempty"`
-		Authentication     []interface{} `json:"authentication,omitempty"`
-		AssertionMethod    []interface{} `json:"assertionMethod,omitempty"`
-		Service            []interface{} `json:"service,omitempty"`
-	}{}
-	err := json.Unmarshal(b, &tmp)
-	if err != nil {
-		return nil, err
-	}
-	return json.Marshal(tmp)
 }
