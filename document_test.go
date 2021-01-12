@@ -6,13 +6,6 @@ import (
 	"testing"
 )
 
-func TestController_UnmarshalJSON(t *testing.T) {
-
-}
-
-func Test_singleOrArray_MarshalJSON(t *testing.T) {
-}
-
 const testDocument1 = `{
   "@context": [
     "https://www.w3.org/ns/did/v1"
@@ -157,94 +150,57 @@ func Test_Document(t *testing.T) {
 	})
 }
 
-func TestNormalizeDocument(t *testing.T) {
-	jsonDoc := `
-{
-	"@context": "https://www.w3.org/ns/did/v1",
-	"id": "did:web:identity.foundation",
-	"controller": ["did:nuts:123", "did:web:example.org"]
-}`
-	expectedResult := `{"@context":["https://www.w3.org/ns/did/v1"],"id":"did:web:identity.foundation","controller":["did:nuts:123","did:web:example.org"]}`
-	normalizedDoc, err := normalizeDocument([]byte(jsonDoc))
-	if err != nil {
-		t.Errorf("unexpected error: %s", err)
-	}
-	if string(normalizedDoc) != expectedResult {
-		t.Errorf("expected:\n%s\n, got:\n%s", expectedResult, normalizedDoc)
-	}
-}
-
 func TestVerificationRelationship_UnmarshalJSON(t *testing.T) {
 	t.Run("ok - unmarshal single did", func(t *testing.T) {
-		jsonVerificationRelationship := `"did:nuts:123#key-1"`
-		vRelation := VerificationRelationship{}
-		err := json.Unmarshal([]byte(jsonVerificationRelationship), &vRelation)
-		if err != nil {
-			t.Errorf("unexpected error: %s", err)
-			return
-		}
-		if vRelation.reference.String() != "did:nuts:123#key-1" {
-			t.Errorf("expected: \n%s\ngot:\n%s", "did:nuts:123#key-1", vRelation.ID.String())
-		}
+		input := `"did:nuts:123#key-1"`
+		actual := VerificationRelationship{}
+		err := json.Unmarshal([]byte(input), &actual)
+		assert.NoError(t, err)
+		assert.Equal(t, "did:nuts:123#key-1", actual.reference.String())
 	})
-
 	t.Run("ok - unmarshal object", func(t *testing.T) {
-		jsonVerificationMethod := ` 
-   {
-  "id": "did:nuts:123#key-1"
-}`
-		vMethod := VerificationRelationship{}
-		err := json.Unmarshal([]byte(jsonVerificationMethod), &vMethod)
-		if err != nil {
-			t.Errorf("unexpected error: %s", err)
-			return
-		}
-		if vMethod.ID.String() != "did:nuts:123#key-1" {
-			t.Errorf("expected: \n%s\ngot:\n%s", "did:nuts:123#key-1", vMethod.ID.String())
-
-		}
-	})
-
-	t.Run("nok - it could not pass an array", func(t *testing.T) {
-		jsonVerificationMethod := `[ "did:nuts:123#key-1" ]`
-		vMethod := VerificationRelationship{}
-		err := json.Unmarshal([]byte(jsonVerificationMethod), &vMethod)
-		if err == nil || err.Error() != "verificationRelation should be either VerificationMethod or DID" {
-			t.Error("expected an error")
-		}
+		input := `{"id": "did:nuts:123#key-1"}`
+		actual := VerificationRelationship{}
+		err := json.Unmarshal([]byte(input), &actual)
+		assert.NoError(t, err)
+		assert.Equal(t, "did:nuts:123#key-1", actual.ID.String())
 	})
 }
 
-func TestServiceEndpoint_UnmarshalJSON(t *testing.T) {
-	serviceJson := `[
-	{
-	  "id":"did:example:123#linked-domain",
-	  "type":"custom",
-	  "serviceEndpoint":"https://bar.example.com"
-	},
-	{
-	  "id":"did:example:123#openid-connect",
-	  "type":"custom",
-	  "serviceEndpoint":["https://foo.example.com","https://bar.example.com"]
-	}
-]`
-	type serviceArr []Service
-	actual := serviceArr{}
-	err := json.Unmarshal([]byte(serviceJson), &actual)
-	if err != nil {
-		t.Errorf("unexpected error: %s", err)
-	}
+func TestService_UnmarshalJSON(t *testing.T) {
+	t.Run("ok", func(t *testing.T) {
+		actual := Service{}
+		err := json.Unmarshal([]byte(`{
+		  "id":"did:example:123#linked-domain",
+		  "type":"custom",
+		  "serviceEndpoint": ["foo", "bar"]
+		}`), &actual)
+		assert.NoError(t, err)
+		assert.Equal(t, "did:example:123#linked-domain", actual.ID.String())
+		assert.Equal(t, "custom", actual.Type)
+		assert.IsType(t, []interface{}{}, actual.ServiceEndpoint)
+	})
+	t.Run("ok - empty", func(t *testing.T) {
+		actual := Service{}
+		err := json.Unmarshal([]byte("{}"), &actual)
+		assert.NoError(t, err)
+	})
+}
 
-	if len(actual) != 2 {
-		t.Errorf("expected to see 2 services")
-		return
+func TestService_UnmarshalServiceEndpoint(t *testing.T) {
+	type targetType struct {
+		Value string
 	}
-
-	// TODO: ServiceEndpoints
-	//expected := "https://bar.example.com"
-	//got := actual[0].ServiceEndpoint[expected]
-	//if got == expected {
-	//	t.Errorf("expected %s, got: %s", expected, got)
-	//}
-
+	t.Run("ok", func(t *testing.T) {
+		input := Service{}
+		json.Unmarshal([]byte(`{
+		  "id":"did:example:123#linked-domain",
+		  "type":"custom",
+		  "serviceEndpoint": {"value": "foobar"}
+		}`), &input)
+		var target targetType
+		err := input.UnmarshalServiceEndpoint(&target)
+		assert.NoError(t, err)
+		assert.Equal(t, "foobar", target.Value)
+	})
 }

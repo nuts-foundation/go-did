@@ -5,11 +5,12 @@ import (
 	"errors"
 	"fmt"
 	"github.com/lestrrat-go/jwx/jwk"
+	"github.com/nuts-foundation/did/internal/marshal"
 )
 
 // Document represents a DID Document as specified by the DID Core specification (https://www.w3.org/TR/did-core/).
 type Document struct {
-	Context            []URI                      `json:"@context"`
+	Context            []URI                      `json:"context"`
 	ID                 DID                        `json:"id"`
 	Controller         []DID                      `json:"controller,omitempty"`
 	VerificationMethod []VerificationMethod       `json:"verificationMethod,omitempty"`
@@ -18,15 +19,39 @@ type Document struct {
 	Service            []Service                  `json:"service,omitempty"`
 }
 
-// Service represents a DID Service Endpoint as specified by the DID Core specification (https://www.w3.org/TR/did-core/#service-endpoints).
+// Service represents a DID Service as specified by the DID Core specification (https://www.w3.org/TR/did-core/#service-endpoints).
 type Service struct {
-	ID   DID
-	Type string
+	ID              URI
+	Type            string
+	ServiceEndpoint interface{}
+}
+
+func (s *Service) UnmarshalJSON(data []byte) error {
+	normalizedData, err := marshal.NormalizeDocument(data, standardAliases, pluralContext, marshal.PluralValueOrMap(serviceEndpointKey))
+	if err != nil {
+		return err
+	}
+	type alias Service
+	var result alias
+	if err := json.Unmarshal(normalizedData, &result); err != nil {
+		return err
+	}
+	*s = (Service)(result)
+	return nil
+}
+
+// Unmarshal unmarshals the service endpoint into a domain-specific type.
+func (s Service) UnmarshalServiceEndpoint(target interface{}) error {
+	if asJSON, err := json.Marshal(s.ServiceEndpoint); err != nil {
+		return err
+	} else {
+		return json.Unmarshal(asJSON, target)
+	}
 }
 
 // VerificationMethod represents a DID Verification Method as specified by the DID Core specification (https://www.w3.org/TR/did-core/#verification-methods).
 type VerificationMethod struct {
-	ID           DID
+	ID           URI
 	Type         string
 	Controller   DID
 	parsedJWK    jwk.Key
@@ -38,10 +63,10 @@ func (v VerificationMethod) JWK() jwk.Key {
 	return v.parsedJWK
 }
 
-// VerificationRelationship represents the usage of a VerificationMethod  e.g. in authentication, assertionMethod, or keyAgreement.
+// VerificationRelationship represents the usage of a VerificationMethod e.g. in authentication, assertionMethod, or keyAgreement.
 type VerificationRelationship struct {
 	*VerificationMethod
-	reference DID
+	reference URI
 }
 
 func (v *VerificationRelationship) UnmarshalJSON(b []byte) error {
@@ -87,7 +112,9 @@ func (v *VerificationMethod) UnmarshalJSON(bytes []byte) error {
 
 func (d *Document) UnmarshalJSON(b []byte) error {
 	type Alias Document
-	normalizedDoc, err := normalizeDocument(b)
+	normalizedDoc, err := marshal.NormalizeDocument(b, standardAliases, pluralContext,
+		marshal.Plural(controllerKey), marshal.Plural(verificationMethodKey), marshal.Plural(authenticationKey),
+		marshal.Plural(assertionMethodKey), marshal.Plural(serviceKey))
 	if err != nil {
 		return err
 	}
@@ -99,21 +126,21 @@ func (d *Document) UnmarshalJSON(b []byte) error {
 	*d = (Document)(doc)
 
 	if err = resolveVerificationRelationships(d.Authentication, d.VerificationMethod); err != nil {
-		return fmt.Errorf("unable to resolve all 'authentication' references: %w", err)
+		return fmt.Errorf("unable to resolve all '%s' references: %w", authenticationKey, err)
 	}
 	if err = resolveVerificationRelationships(d.AssertionMethod, d.VerificationMethod); err != nil {
-		return fmt.Errorf("unable to resolve all could not resolve all 'assertionMethod' references: %w", err)
+		return fmt.Errorf("unable to resolve all '%s' references: %w", assertionMethodKey, err)
 	}
 	return nil
 }
 
 func resolveVerificationRelationships(relationships []VerificationRelationship, methods []VerificationMethod) error {
 	for i, relationship := range relationships {
-		if relationship.reference.Empty() {
+		if relationship.reference.Scheme == "" {
 			continue
 		}
 		if resolved := resolveVerificationRelationship(relationship.reference, methods); resolved == nil {
-			return fmt.Errorf("unable to resolve verificationMethod: %s", relationship.reference)
+			return fmt.Errorf("unable to resolve %s: %s", verificationMethodKey, relationship.reference.String())
 		} else {
 			relationships[i] = *resolved
 		}
@@ -121,30 +148,11 @@ func resolveVerificationRelationships(relationships []VerificationRelationship, 
 	return nil
 }
 
-func resolveVerificationRelationship(reference DID, methods []VerificationMethod) *VerificationRelationship {
+func resolveVerificationRelationship(reference URI, methods []VerificationMethod) *VerificationRelationship {
 	for _, method := range methods {
-		if method.ID.Equals(reference) {
+		if method.ID == reference {
 			return &VerificationRelationship{VerificationMethod: &method}
 		}
 	}
 	return nil
-}
-
-// normalizeDocument accepts a JSON DID document, parses it and converts all single values into an array with a single item.
-// This is important to make unmarshalling to Go structs easier.
-func normalizeDocument(b []byte) ([]byte, error) {
-	tmp := struct {
-		Context            singleOrArray `json:"@context"`
-		ID                 interface{}   `json:"id"`
-		Controller         singleOrArray `json:"controller,omitempty"`
-		VerificationMethod []interface{} `json:"verificationMethod,omitempty"`
-		Authentication     []interface{} `json:"authentication,omitempty"`
-		AssertionMethod    []interface{} `json:"assertionMethod,omitempty"`
-		Service            []interface{} `json:"service,omitempty"`
-	}{}
-	err := json.Unmarshal(b, &tmp)
-	if err != nil {
-		return nil, err
-	}
-	return json.Marshal(tmp)
 }
