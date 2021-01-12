@@ -1,4 +1,4 @@
-package didparser
+package did
 
 import (
 	"encoding/json"

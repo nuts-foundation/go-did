@@ -1,4 +1,4 @@
-module github.com/nuts-foundation/golang-didparser
+module github.com/nuts-foundation/did
 
 go 1.15
 
