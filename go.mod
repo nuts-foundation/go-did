@@ -1,4 +1,4 @@
-module github.com/nuts-foundation/did
+module github.com/nuts-foundation/go-did
 
 go 1.15
 
