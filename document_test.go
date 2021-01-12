@@ -2,63 +2,10 @@ package did
 
 import (
 	"encoding/json"
+	"github.com/nuts-foundation/go-did/test"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )
-
-const testDocument1 = `{
-  "@context": [
-    "https://www.w3.org/ns/did/v1"
-  ],
-  "id": "did:nuts:04cf1e20-378a-4e38-ab1b-401a5018c9ff",
-  "controller": [
-    "did:nuts:04cf1e20-378a-4e38-ab1b-401a5018c9ff",
-    "did:nuts:f03a00f1-9615-4060-bd00-bd282e150c46"
-  ],
-  "verificationMethod": [
-    {
-      "id": "did:nuts:04cf1e20-378a-4e38-ab1b-401a5018c9ff#key-1",
-      "type": "JsonWebKey2020",
-      "controller": "did:nuts:04cf1e20-378a-4e38-ab1b-401a5018c9ff",
-      "publicKeyJwk": {
-        "kty" : "EC",
-		"crv" : "P-256",
-		"x"   : "SVqB4JcUD6lsfvqMr-OKUNUphdNn64Eay60978ZlL74",
-		"y"   : "lf0u0pMj4lGAzZix5u4Cm5CMQIgMNpkwy163wtKYVKI"
-  	  }
-    },
-    {
-      "id": "did:nuts:04cf1e20-378a-4e38-ab1b-401a5018c9ff#key-2",
-      "type": "JsonWebKey2020",
-      "controller": "did:nuts:04cf1e20-378a-4e38-ab1b-401a5018c9ff",
-      "publicKeyJwk": {
-        "kty" : "EC",
-		"crv" : "P-256",
-		"x"   : "SVqB4JcUD6lsfvqMr-OKUNUphdNn64Eay60978ZlL74",
-		"y"   : "lf0u0pMj4lGAzZix5u4Cm5CMQIgMNpkwy163wtKYVKI"
-  	  }
-    }
-  ],
-  "authentication": [
-    "did:nuts:04cf1e20-378a-4e38-ab1b-401a5018c9ff#key-1",
-    "did:nuts:04cf1e20-378a-4e38-ab1b-401a5018c9ff#key-2"
-  ],
-  "assertionMethod": [
-    "did:nuts:04cf1e20-378a-4e38-ab1b-401a5018c9ff#key-1"
-  ],
-  "service": [
-    {
-      "id": "did:nuts:04cf1e20-378a-4e38-ab1b-401a5018c9ff#service-1",
-      "type": "nuts:bolt:eoverdracht",
-      "serviceEndpoint": "did:nuts:<vendor>#service-76"
-    },
-    {
-      "id": "did:nuts:04cf1e20-378a-4e38-ab1b-401a5018c9ff#service-2",
-      "type": "nuts:core:consent",
-      "serviceEndpoint": "did:nuts:<vendor>#service-2"
-    }
-  ]
-}`
 
 func Test_Document(t *testing.T) {
 	t.Run("it can marshal a json did into a Document", func(t *testing.T) {
@@ -80,7 +27,7 @@ func Test_Document(t *testing.T) {
 	})
 
 	var actual Document
-	if err := json.Unmarshal([]byte(testDocument1), &actual); err != nil {
+	if err := json.Unmarshal(test.ReadTestFile("test/did1.json"), &actual); err != nil {
 		t.Error(err)
 		return
 	}
@@ -148,6 +95,28 @@ func Test_Document(t *testing.T) {
 	t.Run("it can link verification relationships bases on a key id", func(t *testing.T) {
 		assert.Equal(t, actual.VerificationMethod[0], *actual.AssertionMethod[0].VerificationMethod)
 	})
+}
+
+func TestRoundTripMarshalling(t *testing.T) {
+	testCases := []string{
+		"did1",
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase, func(t *testing.T) {
+			document := Document{}
+			err := json.Unmarshal(test.ReadTestFile("test/" + testCase + ".json"), &document)
+			if !assert.NoError(t, err) {
+				return
+			}
+			marshaled, err := json.Marshal(document)
+			if !assert.NoError(t, err) {
+				return
+			}
+			println(string(marshaled))
+			assert.JSONEq(t, string(test.ReadTestFile("test/" + testCase + "-expected.json")), string(marshaled))
+		})
+	}
 }
 
 func TestVerificationRelationship_UnmarshalJSON(t *testing.T) {

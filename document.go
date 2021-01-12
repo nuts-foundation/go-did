@@ -19,11 +19,53 @@ type Document struct {
 	Service            []Service                  `json:"service,omitempty"`
 }
 
+func (d Document) MarshalJSON() ([]byte, error) {
+	type alias Document
+	tmp := alias(d)
+	if data, err := json.Marshal(tmp); err != nil {
+		return nil, err
+	} else {
+		return marshal.NormalizeDocument(data, marshal.Unplural(contextKey), marshal.Unplural(controllerKey))
+	}
+}
+
+func (d *Document) UnmarshalJSON(b []byte) error {
+	type Alias Document
+	normalizedDoc, err := marshal.NormalizeDocument(b, standardAliases, pluralContext, marshal.Plural(controllerKey))
+	if err != nil {
+		return err
+	}
+	doc := Alias{}
+	err = json.Unmarshal(normalizedDoc, &doc)
+	if err != nil {
+		return err
+	}
+	*d = (Document)(doc)
+
+	if err = resolveVerificationRelationships(d.Authentication, d.VerificationMethod); err != nil {
+		return fmt.Errorf("unable to resolve all '%s' references: %w", authenticationKey, err)
+	}
+	if err = resolveVerificationRelationships(d.AssertionMethod, d.VerificationMethod); err != nil {
+		return fmt.Errorf("unable to resolve all '%s' references: %w", assertionMethodKey, err)
+	}
+	return nil
+}
+
 // Service represents a DID Service as specified by the DID Core specification (https://www.w3.org/TR/did-core/#service-endpoints).
 type Service struct {
-	ID              URI
-	Type            string
-	ServiceEndpoint interface{}
+	ID              URI         `json:"id"`
+	Type            string      `json:"type,omitempty"`
+	ServiceEndpoint interface{} `json:"serviceEndpoint,omitempty"`
+}
+
+func (s Service) MarshalJSON() ([]byte, error) {
+	type alias Service
+	tmp := alias(s)
+	if data, err := json.Marshal(tmp); err != nil {
+		return nil, err
+	} else {
+		return marshal.NormalizeDocument(data, marshal.Unplural(serviceEndpointKey))
+	}
 }
 
 func (s *Service) UnmarshalJSON(data []byte) error {
@@ -51,11 +93,11 @@ func (s Service) UnmarshalServiceEndpoint(target interface{}) error {
 
 // VerificationMethod represents a DID Verification Method as specified by the DID Core specification (https://www.w3.org/TR/did-core/#verification-methods).
 type VerificationMethod struct {
-	ID           URI
-	Type         string
-	Controller   DID
+	ID           URI    `json:"id"`
+	Type         string `json:"type,omitempty"`
+	Controller   DID    `json:"controller,omitempty"`
 	parsedJWK    jwk.Key
-	PublicKeyJwk map[string]interface{}
+	PublicKeyJwk map[string]interface{} `json:"publicKeyJwk,omitempty"`
 }
 
 // JWK returns the key described by the VerificationMethod as JSON Web Key.
@@ -67,6 +109,14 @@ func (v VerificationMethod) JWK() jwk.Key {
 type VerificationRelationship struct {
 	*VerificationMethod
 	reference URI
+}
+
+func (v VerificationRelationship) MarshalJSON() ([]byte, error) {
+	if v.reference.Scheme == "" {
+		return json.Marshal(*v.VerificationMethod)
+	} else {
+		return json.Marshal(v.reference)
+	}
 }
 
 func (v *VerificationRelationship) UnmarshalJSON(b []byte) error {
@@ -110,30 +160,6 @@ func (v *VerificationMethod) UnmarshalJSON(bytes []byte) error {
 	return nil
 }
 
-func (d *Document) UnmarshalJSON(b []byte) error {
-	type Alias Document
-	normalizedDoc, err := marshal.NormalizeDocument(b, standardAliases, pluralContext,
-		marshal.Plural(controllerKey), marshal.Plural(verificationMethodKey), marshal.Plural(authenticationKey),
-		marshal.Plural(assertionMethodKey), marshal.Plural(serviceKey))
-	if err != nil {
-		return err
-	}
-	doc := Alias{}
-	err = json.Unmarshal(normalizedDoc, &doc)
-	if err != nil {
-		return err
-	}
-	*d = (Document)(doc)
-
-	if err = resolveVerificationRelationships(d.Authentication, d.VerificationMethod); err != nil {
-		return fmt.Errorf("unable to resolve all '%s' references: %w", authenticationKey, err)
-	}
-	if err = resolveVerificationRelationships(d.AssertionMethod, d.VerificationMethod); err != nil {
-		return fmt.Errorf("unable to resolve all '%s' references: %w", assertionMethodKey, err)
-	}
-	return nil
-}
-
 func resolveVerificationRelationships(relationships []VerificationRelationship, methods []VerificationMethod) error {
 	for i, relationship := range relationships {
 		if relationship.reference.Scheme == "" {
@@ -143,6 +169,7 @@ func resolveVerificationRelationships(relationships []VerificationRelationship, 
 			return fmt.Errorf("unable to resolve %s: %s", verificationMethodKey, relationship.reference.String())
 		} else {
 			relationships[i] = *resolved
+			relationships[i].reference = relationship.reference
 		}
 	}
 	return nil
