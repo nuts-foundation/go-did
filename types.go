@@ -1,4 +1,4 @@
-package pkg
+package did
 
 import (
 	"encoding/json"
@@ -23,3 +23,4 @@ func (v *URI) UnmarshalJSON(bytes []byte) error {
 	v.URL = *parsedUrl
 	return nil
 }
+

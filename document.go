@@ -5,14 +5,13 @@ import (
 	"errors"
 	"fmt"
 	"github.com/lestrrat-go/jwx/jwk"
-	"github.com/nuts-foundation/did/marshal"
-	"github.com/nuts-foundation/did/pkg"
+	"github.com/nuts-foundation/did/internal"
 	"net/url"
 )
 
 // Document represents a DID Document as specified by the DID Core specification (https://www.w3.org/TR/did-core/).
 type Document struct {
-	Context            []pkg.URI                  `json:"context"`
+	Context            []URI                      `json:"context"`
 	ID                 DID                        `json:"id"`
 	Controller         []DID                      `json:"controller,omitempty"`
 	VerificationMethod []VerificationMethod       `json:"verificationMethod,omitempty"`
@@ -23,7 +22,7 @@ type Document struct {
 
 // Service represents a DID Service Endpoint as specified by the DID Core specification (https://www.w3.org/TR/did-core/#service-endpoints).
 type Service struct {
-	ID   DID
+	ID   URI
 	Type string
 	// EndpointURL contains the service endpoint URLs if set. If this field is empty, the service should contain
 	// properties as serviceEndpoint (see EndpointProperties). You can also check this using IsURL.
@@ -41,7 +40,7 @@ func (s Service) IsURL() bool {
 }
 
 func (s *Service) UnmarshalJSON(data []byte) error {
-	normalizedData, err := marshal.NormalizeDocument(data, append(standardAliases, pluralContext, marshal.PluralValueOrMap(serviceEndpointKey)))
+	normalizedData, err := internal.NormalizeDocument(data, standardAliases, pluralContext, internal.PluralValueOrMap(serviceEndpointKey))
 	if err != nil {
 		return err
 	}
@@ -81,7 +80,7 @@ func (s Service) UnmarshalEndpoint(target interface{}) error {
 
 // VerificationMethod represents a DID Verification Method as specified by the DID Core specification (https://www.w3.org/TR/did-core/#verification-methods).
 type VerificationMethod struct {
-	ID           DID
+	ID           URI
 	Type         string
 	Controller   DID
 	parsedJWK    jwk.Key
@@ -96,7 +95,7 @@ func (v VerificationMethod) JWK() jwk.Key {
 // VerificationRelationship represents the usage of a VerificationMethod e.g. in authentication, assertionMethod, or keyAgreement.
 type VerificationRelationship struct {
 	*VerificationMethod
-	reference DID
+	reference URI
 }
 
 func (v *VerificationRelationship) UnmarshalJSON(b []byte) error {
@@ -142,9 +141,9 @@ func (v *VerificationMethod) UnmarshalJSON(bytes []byte) error {
 
 func (d *Document) UnmarshalJSON(b []byte) error {
 	type Alias Document
-	normalizedDoc, err := marshal.NormalizeDocument(b, append(standardAliases, pluralContext,
-		marshal.Plural(controllerKey), marshal.Plural(verificationMethodKey), marshal.Plural(authenticationKey),
-		marshal.Plural(assertionMethodKey), marshal.Plural(serviceKey)))
+	normalizedDoc, err := internal.NormalizeDocument(b, standardAliases, pluralContext,
+		internal.Plural(controllerKey), internal.Plural(verificationMethodKey), internal.Plural(authenticationKey),
+		internal.Plural(assertionMethodKey), internal.Plural(serviceKey))
 	if err != nil {
 		return err
 	}
@@ -166,11 +165,11 @@ func (d *Document) UnmarshalJSON(b []byte) error {
 
 func resolveVerificationRelationships(relationships []VerificationRelationship, methods []VerificationMethod) error {
 	for i, relationship := range relationships {
-		if relationship.reference.Empty() {
+		if relationship.reference.Scheme == "" {
 			continue
 		}
 		if resolved := resolveVerificationRelationship(relationship.reference, methods); resolved == nil {
-			return fmt.Errorf("unable to resolve %s: %s", verificationMethodKey, relationship.reference)
+			return fmt.Errorf("unable to resolve %s: %s", verificationMethodKey, relationship.reference.String())
 		} else {
 			relationships[i] = *resolved
 		}
@@ -178,9 +177,9 @@ func resolveVerificationRelationships(relationships []VerificationRelationship, 
 	return nil
 }
 
-func resolveVerificationRelationship(reference DID, methods []VerificationMethod) *VerificationRelationship {
+func resolveVerificationRelationship(reference URI, methods []VerificationMethod) *VerificationRelationship {
 	for _, method := range methods {
-		if method.ID.Equals(reference) {
+		if method.ID == reference {
 			return &VerificationRelationship{VerificationMethod: &method}
 		}
 	}
