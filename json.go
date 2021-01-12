@@ -2,7 +2,7 @@ package did
 
 import (
 	"errors"
-	"github.com/nuts-foundation/did/internal"
+	"github.com/nuts-foundation/did/internal/marshal"
 	"net/url"
 )
 
@@ -16,11 +16,11 @@ const serviceKey = "service"
 const typeKey = "type"
 const serviceEndpointKey = "serviceEndpoint"
 
-var standardAliases internal.Normalizer = func(m map[string]interface{}) {
-	internal.KeyAlias("@context", contextKey)(m)
-	internal.KeyAlias("@id", idKey)(m)
+var standardAliases marshal.Normalizer = func(m map[string]interface{}) {
+	marshal.KeyAlias("@context", contextKey)(m)
+	marshal.KeyAlias("@id", idKey)(m)
 }
-var pluralContext = internal.Plural(contextKey)
+var pluralContext = marshal.Plural(contextKey)
 
 func parseURLs(input []interface{}) ([]url.URL, error) {
 	result := make([]url.URL, len(input))

@@ -172,46 +172,13 @@ func TestService_UnmarshalJSON(t *testing.T) {
 		actual := Service{}
 		err := json.Unmarshal([]byte(`{
 		  "id":"did:example:123#linked-domain",
-		  "type":"custom"
+		  "type":"custom",
+		  "serviceEndpoint": ["foo", "bar"]
 		}`), &actual)
 		assert.NoError(t, err)
 		assert.Equal(t, "did:example:123#linked-domain", actual.ID.String())
 		assert.Equal(t, "custom", actual.Type)
-	})
-	t.Run("ok - single endpoint URL", func(t *testing.T) {
-		actual := Service{}
-		err := json.Unmarshal([]byte(`{
-		  "id":"did:example:123#linked-domain",
-		  "type":"custom",
-		  "serviceEndpoint":"https://bar.example.com"
-		}`), &actual)
-		if !assert.NoError(t, err) {
-			return
-		}
-		assert.True(t, actual.IsURL())
-		if !assert.Len(t, actual.EndpointURL, 1) {
-			return
-		}
-		assert.Equal(t, "https://bar.example.com", actual.EndpointURL[0].String())
-		assert.Nil(t, actual.EndpointProperties)
-	})
-	t.Run("ok - multiple endpoint URL", func(t *testing.T) {
-		actual := Service{}
-		err := json.Unmarshal([]byte(`{
-		  "id":"did:example:123#linked-domain",
-		  "type":"custom",
-		  "serviceEndpoint":["https://foo.example.com","https://bar.example.com"]
-		}`), &actual)
-		if !assert.NoError(t, err) {
-			return
-		}
-		assert.True(t, actual.IsURL())
-		if !assert.Len(t, actual.EndpointURL, 2) {
-
-		}
-		assert.Equal(t, "https://foo.example.com", actual.EndpointURL[0].String())
-		assert.Equal(t, "https://bar.example.com", actual.EndpointURL[1].String())
-		assert.Nil(t, actual.EndpointProperties)
+		assert.IsType(t, []interface{}{}, actual.Endpoint)
 	})
 	t.Run("ok - empty", func(t *testing.T) {
 		actual := Service{}
@@ -235,16 +202,5 @@ func TestService_Unmarshal(t *testing.T) {
 		err := input.UnmarshalEndpoint(&target)
 		assert.NoError(t, err)
 		assert.Equal(t, "foobar", target.Value)
-	})
-	t.Run("error - service contains an endpoint URL", func(t *testing.T) {
-		input := Service{}
-		json.Unmarshal([]byte(`{
-		  "id":"did:example:123#linked-domain",
-		  "type":"custom",
-		  "serviceEndpoint": "https://foo.example.com"
-		}`), &input)
-		var target targetType
-		err := input.UnmarshalEndpoint(&target)
-		assert.EqualError(t, err, "service endpoint contains a URL so can't be unmarshalled")
 	})
 }

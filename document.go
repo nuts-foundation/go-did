@@ -5,8 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/lestrrat-go/jwx/jwk"
-	"github.com/nuts-foundation/did/internal"
-	"net/url"
+	"github.com/nuts-foundation/did/internal/marshal"
 )
 
 // Document represents a DID Document as specified by the DID Core specification (https://www.w3.org/TR/did-core/).
@@ -22,25 +21,13 @@ type Document struct {
 
 // Service represents a DID Service Endpoint as specified by the DID Core specification (https://www.w3.org/TR/did-core/#service-endpoints).
 type Service struct {
-	ID   URI
-	Type string
-	// EndpointURL contains the service endpoint URLs if set. If this field is empty, the service should contain
-	// properties as serviceEndpoint (see EndpointProperties). You can also check this using IsURL.
-	EndpointURL []url.URL `json:"-"`
-	// EndpointProperties contains the service endpoint proeprties if set. If this field is empty, the service should contain
-	// an absolute URL (or multiple) as serviceEndpoint (see EndpointURL). You can also check this using IsURL.
-	EndpointProperties map[string]interface{} `json:"-"`
-}
-
-// IsURL returns whether the service endpoint contains an absolute URL or properties. If it returns true, `EndpointURL`
-// contains the value to be used. Otherwise applications should use `EndpointProperties` directly or unmarshal it into
-// a more specific type using `UnmarshalEndpoint`.
-func (s Service) IsURL() bool {
-	return len(s.EndpointURL) > 0
+	ID       URI
+	Type     string
+	Endpoint interface{} `json:"serviceEndpoint"`
 }
 
 func (s *Service) UnmarshalJSON(data []byte) error {
-	normalizedData, err := internal.NormalizeDocument(data, standardAliases, pluralContext, internal.PluralValueOrMap(serviceEndpointKey))
+	normalizedData, err := marshal.NormalizeDocument(data, standardAliases, pluralContext, marshal.PluralValueOrMap(serviceEndpointKey))
 	if err != nil {
 		return err
 	}
@@ -49,29 +36,13 @@ func (s *Service) UnmarshalJSON(data []byte) error {
 	if err := json.Unmarshal(normalizedData, &result); err != nil {
 		return err
 	}
-	asMap := make(map[string]interface{})
-	if err := json.Unmarshal(normalizedData, &asMap); err != nil {
-		return err
-	}
-	if asMap[serviceEndpointKey] != nil {
-		if absoluteEPs, ok := asMap[serviceEndpointKey].([]interface{}); ok {
-			if result.EndpointURL, err = parseURLs(absoluteEPs); err != nil {
-				return fmt.Errorf("invalid service endpoint URL: %w", err)
-			}
-		} else {
-			result.EndpointProperties = asMap[serviceEndpointKey].(map[string]interface{})
-		}
-	}
 	*s = (Service)(result)
 	return nil
 }
 
-// Unmarshal unmarshals the endpoint properties into a domain-specific type. Can only be used when `IsURL` returns false.
+// Unmarshal unmarshals the endpoint into a domain-specific type.
 func (s Service) UnmarshalEndpoint(target interface{}) error {
-	if s.IsURL() {
-		return errors.New("service endpoint contains a URL so can't be unmarshalled")
-	}
-	if asJSON, err := json.Marshal(s.EndpointProperties); err != nil {
+	if asJSON, err := json.Marshal(s.Endpoint); err != nil {
 		return err
 	} else {
 		return json.Unmarshal(asJSON, target)
@@ -141,9 +112,9 @@ func (v *VerificationMethod) UnmarshalJSON(bytes []byte) error {
 
 func (d *Document) UnmarshalJSON(b []byte) error {
 	type Alias Document
-	normalizedDoc, err := internal.NormalizeDocument(b, standardAliases, pluralContext,
-		internal.Plural(controllerKey), internal.Plural(verificationMethodKey), internal.Plural(authenticationKey),
-		internal.Plural(assertionMethodKey), internal.Plural(serviceKey))
+	normalizedDoc, err := marshal.NormalizeDocument(b, standardAliases, pluralContext,
+		marshal.Plural(controllerKey), marshal.Plural(verificationMethodKey), marshal.Plural(authenticationKey),
+		marshal.Plural(assertionMethodKey), marshal.Plural(serviceKey))
 	if err != nil {
 		return err
 	}

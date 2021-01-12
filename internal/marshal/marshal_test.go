@@ -1,4 +1,4 @@
-package internal
+package marshal
 
 import (
 	"github.com/stretchr/testify/assert"
