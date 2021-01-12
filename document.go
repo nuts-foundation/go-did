@@ -19,11 +19,11 @@ type Document struct {
 	Service            []Service                  `json:"service,omitempty"`
 }
 
-// Service represents a DID Service Endpoint as specified by the DID Core specification (https://www.w3.org/TR/did-core/#service-endpoints).
+// Service represents a DID Service as specified by the DID Core specification (https://www.w3.org/TR/did-core/#service-endpoints).
 type Service struct {
-	ID       URI
-	Type     string
-	Endpoint interface{} `json:"serviceEndpoint"`
+	ID              URI
+	Type            string
+	ServiceEndpoint interface{}
 }
 
 func (s *Service) UnmarshalJSON(data []byte) error {
@@ -40,9 +40,9 @@ func (s *Service) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-// Unmarshal unmarshals the endpoint into a domain-specific type.
-func (s Service) UnmarshalEndpoint(target interface{}) error {
-	if asJSON, err := json.Marshal(s.Endpoint); err != nil {
+// Unmarshal unmarshals the service endpoint into a domain-specific type.
+func (s Service) UnmarshalServiceEndpoint(target interface{}) error {
+	if asJSON, err := json.Marshal(s.ServiceEndpoint); err != nil {
 		return err
 	} else {
 		return json.Unmarshal(asJSON, target)
