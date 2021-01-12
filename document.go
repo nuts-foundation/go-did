@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/lestrrat-go/jwx/jwk"
-	"github.com/nuts-foundation/did/internal/marshal"
+	"github.com/nuts-foundation/go-did/internal/marshal"
 )
 
 // Document represents a DID Document as specified by the DID Core specification (https://www.w3.org/TR/did-core/).

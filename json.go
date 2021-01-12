@@ -2,7 +2,7 @@ package did
 
 import (
 	"errors"
-	"github.com/nuts-foundation/did/internal/marshal"
+	"github.com/nuts-foundation/go-did/internal/marshal"
 	"net/url"
 )
 
