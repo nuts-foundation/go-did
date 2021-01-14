@@ -11,6 +11,10 @@ type URI struct {
 	url.URL
 }
 
+func (v URI) MarshalJSON() ([]byte, error) {
+	return json.Marshal(v.String())
+}
+
 func (v *URI) UnmarshalJSON(bytes []byte) error {
 	var value string
 	if err := json.Unmarshal(bytes, &value); err != nil {
