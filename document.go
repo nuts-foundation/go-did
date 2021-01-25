@@ -51,10 +51,6 @@ func (d *Document) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
-func (d Document) Copy() Document {
-	return d
-}
-
 // Service represents a DID Service as specified by the DID Core specification (https://www.w3.org/TR/did-core/#service-endpoints).
 type Service struct {
 	ID              URI         `json:"id"`
