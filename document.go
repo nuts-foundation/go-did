@@ -1,10 +1,16 @@
 package did
 
 import (
+	"context"
+	"crypto"
+	"crypto/ed25519"
 	"encoding/json"
 	"errors"
 	"fmt"
+
 	"github.com/lestrrat-go/jwx/jwk"
+	"github.com/shengdoushi/base58"
+
 	"github.com/nuts-foundation/go-did/internal/marshal"
 )
 
@@ -13,10 +19,23 @@ type Document struct {
 	Context            []URI                      `json:"context"`
 	ID                 DID                        `json:"id"`
 	Controller         []DID                      `json:"controller,omitempty"`
-	VerificationMethod []VerificationMethod       `json:"verificationMethod,omitempty"`
+	VerificationMethod []*VerificationMethod      `json:"verificationMethod,omitempty"`
 	Authentication     []VerificationRelationship `json:"authentication,omitempty"`
 	AssertionMethod    []VerificationRelationship `json:"assertionMethod,omitempty"`
 	Service            []Service                  `json:"service,omitempty"`
+}
+
+// Add a VerificationMethod as AssertionMethod
+func (d *Document) AddAssertionMethod(v *VerificationMethod) {
+	if v.Controller.Empty() {
+		v.Controller = d.ID
+	}
+	d.VerificationMethod = append(d.VerificationMethod, v)
+	d.AssertionMethod = append(d.AssertionMethod, VerificationRelationship{
+		VerificationMethod: v,
+		reference:          v.ID,
+	})
+
 }
 
 func (d Document) MarshalJSON() ([]byte, error) {
@@ -82,7 +101,7 @@ func (s *Service) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-// Unmarshal unmarshals the service endpoint into a domain-specific type.
+// Unmarshal unmarshalls the service endpoint into a domain-specific type.
 func (s Service) UnmarshalServiceEndpoint(target interface{}) error {
 	if asJSON, err := json.Marshal(s.ServiceEndpoint); err != nil {
 		return err
@@ -93,26 +112,89 @@ func (s Service) UnmarshalServiceEndpoint(target interface{}) error {
 
 // VerificationMethod represents a DID Verification Method as specified by the DID Core specification (https://www.w3.org/TR/did-core/#verification-methods).
 type VerificationMethod struct {
-	ID           URI    `json:"id"`
-	Type         string `json:"type,omitempty"`
-	Controller   DID    `json:"controller,omitempty"`
-	parsedJWK    jwk.Key
-	PublicKeyJwk map[string]interface{} `json:"publicKeyJwk,omitempty"`
+	ID              DID                    `json:"id"`
+	Type            KeyType                `json:"type,omitempty"`
+	Controller      DID                    `json:"controller,omitempty"`
+	PublicKeyJwk    map[string]interface{} `json:"publicKeyJwk,omitempty"`
+	PublicKeyBase58 string                 `json:"publicKeyBase58,omitempty"`
+}
+
+// NewVerificationMethod is a convenience method to easily create verificationMethods based on a set of given params.
+// It automatically encodes the provided public key based on the keyType.
+func NewVerificationMethod(id DID, keyType KeyType, controller DID, key crypto.PublicKey) (*VerificationMethod, error) {
+	vm := &VerificationMethod{
+		ID:           id,
+		Type:         keyType,
+		Controller:   controller,
+	}
+
+	if keyType == JsonWebKey2020 {
+		keyAsJWK, err := jwk.New(key)
+		if err != nil {
+			return nil, err
+		}
+		jwkAsMap, err := keyAsJWK.AsMap(context.Background())
+		if err != nil {
+			return nil, err
+		}
+		vm.PublicKeyJwk = jwkAsMap
+	}
+	if keyType == ED25519VerificationKey2018 {
+		ed25519Key, ok := key.(ed25519.PublicKey)
+		if !ok {
+			return nil, errors.New("wrong key type")
+		}
+		encodedKey := base58.Encode(ed25519Key, base58.BitcoinAlphabet)
+		vm.PublicKeyBase58 = encodedKey
+	}
+
+	return vm, nil
 }
 
 // JWK returns the key described by the VerificationMethod as JSON Web Key.
-func (v VerificationMethod) JWK() jwk.Key {
-	return v.parsedJWK
+func (v VerificationMethod) JWK() (jwk.Key, error) {
+	if v.PublicKeyJwk == nil {
+		return nil, nil
+	}
+	jwkAsJSON, _ := json.Marshal(v.PublicKeyJwk)
+	key, err := jwk.ParseKey(jwkAsJSON)
+	if err != nil {
+		return nil, fmt.Errorf("could not parse public key: %w", err)
+	}
+	return key, nil
+}
+
+func (v VerificationMethod) PublicKey() (crypto.PublicKey, error) {
+	var pubKey crypto.PublicKey
+	switch v.Type {
+	case ED25519VerificationKey2018:
+		keyBytes, err := base58.Decode(v.PublicKeyBase58, base58.BitcoinAlphabet)
+		if err != nil {
+			return nil, err
+		}
+		return ed25519.PublicKey(keyBytes), err
+	case JsonWebKey2020:
+		keyAsJWK, err := v.JWK()
+		if err != nil {
+			return nil, err
+		}
+		err = keyAsJWK.Raw(&pubKey)
+		if err != nil {
+			return nil, err
+		}
+		return pubKey, nil
+	}
+	return nil, errors.New("unsupported verification method type")
 }
 
 // VerificationRelationship represents the usage of a VerificationMethod e.g. in authentication, assertionMethod, or keyAgreement.
 type VerificationRelationship struct {
 	*VerificationMethod
-	reference URI
+	reference DID
 }
 
 func (v VerificationRelationship) MarshalJSON() ([]byte, error) {
-	if v.reference.Scheme == "" {
+	if v.reference.Empty() {
 		return json.Marshal(*v.VerificationMethod)
 	} else {
 		return json.Marshal(v.reference)
@@ -149,20 +231,12 @@ func (v *VerificationMethod) UnmarshalJSON(bytes []byte) error {
 		return err
 	}
 	*v = (VerificationMethod)(tmp)
-	if v.PublicKeyJwk != nil {
-		jwkAsJSON, _ := json.Marshal(v.PublicKeyJwk)
-		key, err := jwk.ParseKey(jwkAsJSON)
-		if err != nil {
-			return fmt.Errorf("could not parse verificationMethod: invalid publickeyJwk: %w", err)
-		}
-		v.parsedJWK = key
-	}
 	return nil
 }
 
-func resolveVerificationRelationships(relationships []VerificationRelationship, methods []VerificationMethod) error {
+func resolveVerificationRelationships(relationships []VerificationRelationship, methods []*VerificationMethod) error {
 	for i, relationship := range relationships {
-		if relationship.reference.Scheme == "" {
+		if relationship.reference.Empty() {
 			continue
 		}
 		if resolved := resolveVerificationRelationship(relationship.reference, methods); resolved == nil {
@@ -175,10 +249,10 @@ func resolveVerificationRelationships(relationships []VerificationRelationship, 
 	return nil
 }
 
-func resolveVerificationRelationship(reference URI, methods []VerificationMethod) *VerificationRelationship {
+func resolveVerificationRelationship(reference DID, methods []*VerificationMethod) *VerificationRelationship {
 	for _, method := range methods {
-		if method.ID == reference {
-			return &VerificationRelationship{VerificationMethod: &method}
+		if method.ID.Equals(reference) {
+			return &VerificationRelationship{VerificationMethod: method}
 		}
 	}
 	return nil

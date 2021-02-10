@@ -1,10 +1,16 @@
 package did
 
 import (
+	"crypto/ecdsa"
+	"crypto/ed25519"
+	"crypto/elliptic"
+	"crypto/rand"
 	"encoding/json"
-	"github.com/nuts-foundation/go-did/test"
-	"github.com/stretchr/testify/assert"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+
+	"github.com/nuts-foundation/go-did/test"
 )
 
 func Test_Document(t *testing.T) {
@@ -93,7 +99,46 @@ func Test_Document(t *testing.T) {
 	})
 
 	t.Run("it can link verification relationships bases on a key id", func(t *testing.T) {
-		assert.Equal(t, actual.VerificationMethod[0], *actual.AssertionMethod[0].VerificationMethod)
+		assert.Equal(t, actual.VerificationMethod[0], actual.AssertionMethod[0].VerificationMethod)
+	})
+
+	t.Run("it can add assertionMethods with json web key", func(t *testing.T) {
+		id := actual.ID
+		id.Fragment = "added-assertion-method-1"
+
+		keyPair, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+		vm, err := NewVerificationMethod(id, JsonWebKey2020, actual.ID, keyPair.PublicKey)
+		if !assert.NoError(t, err) {
+			return
+		}
+
+		actual.AddAssertionMethod(*vm)
+		//assert.NoError(t, err, "unable to add a new assertionMethod to document")
+		didJson, _ := json.MarshalIndent(actual, "", "  ")
+		t.Logf("resulting json:\n%s", didJson)
+	})
+
+	t.Run("it can add assertionMethods with ED25519VerificationKey2018", func(t *testing.T) {
+		id := actual.ID
+		id.Fragment = "added-assertion-method-1"
+
+		pubKey, _, _ := ed25519.GenerateKey(rand.Reader)
+		vm, err := NewVerificationMethod(id, ED25519VerificationKey2018, actual.ID, pubKey)
+		if !assert.NoError(t, err) {
+			return
+		}
+
+		actual.AddAssertionMethod(*vm)
+		didJson, _ := json.MarshalIndent(actual, "", "  ")
+		t.Logf("resulting json:\n%s", didJson)
+	})
+
+	t.Run("it can parse a jwk in a verification method", func(t *testing.T) {
+		keyAsJWK, err := actual.Authentication[0].JWK()
+		if !assert.NoError(t, err, "expected key to be converted to a jwk.key") {
+			return
+		}
+		assert.Equal(t, "EC", keyAsJWK.KeyType().String())
 	})
 }
 
@@ -105,7 +150,7 @@ func TestRoundTripMarshalling(t *testing.T) {
 	for _, testCase := range testCases {
 		t.Run(testCase, func(t *testing.T) {
 			document := Document{}
-			err := json.Unmarshal(test.ReadTestFile("test/" + testCase + ".json"), &document)
+			err := json.Unmarshal(test.ReadTestFile("test/"+testCase+".json"), &document)
 			if !assert.NoError(t, err) {
 				return
 			}
@@ -114,7 +159,7 @@ func TestRoundTripMarshalling(t *testing.T) {
 				return
 			}
 			println(string(marshaled))
-			assert.JSONEq(t, string(test.ReadTestFile("test/" + testCase + "-expected.json")), string(marshaled))
+			assert.JSONEq(t, string(test.ReadTestFile("test/"+testCase+"-expected.json")), string(marshaled))
 		})
 	}
 }
