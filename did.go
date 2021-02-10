@@ -12,6 +12,11 @@ type DID struct {
 	ockamDid.DID
 }
 
+// Empty checks whether the DID is set or not
+func (d DID) Empty() bool {
+	return d.Method == ""
+}
+
 // Equals checks whether the DID is exactly equal to another DID
 func (d DID) Equals(other DID) bool {
 	return d.String() == other.String()
