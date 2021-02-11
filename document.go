@@ -26,16 +26,42 @@ type Document struct {
 }
 
 // Add a VerificationMethod as AssertionMethod
+// If the controller is not set, it will be set to the documents ID
 func (d *Document) AddAssertionMethod(v *VerificationMethod) {
-	if v.Controller.Empty() {
-		v.Controller = d.ID
-	}
-	d.VerificationMethod = append(d.VerificationMethod, v)
+	d.addVerificationMethodIfNotExists(v)
 	d.AssertionMethod = append(d.AssertionMethod, VerificationRelationship{
 		VerificationMethod: v,
 		reference:          v.ID,
 	})
+}
 
+// AddAuthenticationMethod adds a VerificationMethod as AuthenticationMethod
+// If the controller is not set, it will be set to the documents ID
+func (d *Document) AddAuthenticationMethod(v *VerificationMethod) {
+	d.addVerificationMethodIfNotExists(v)
+	d.Authentication = append(d.Authentication, VerificationRelationship{
+		VerificationMethod: v,
+		reference:          v.ID,
+	})
+}
+
+// When adding verificationMethods, this metho makes sure there won't be any duplicates
+func (d *Document) addVerificationMethodIfNotExists(v*VerificationMethod) {
+	for _, ptr := range d.VerificationMethod {
+		// check if the pointer is already in the list
+		if ptr == v {
+			return
+		}
+		// check if the actual ids match?
+		if ptr.ID.Equals(v.ID) {
+			return
+		}
+	}
+	// If the controller is not set, set the current document as controller
+	if v.Controller.Empty() {
+		v.Controller = d.ID
+	}
+	d.VerificationMethod = append(d.VerificationMethod, v)
 }
 
 func (d Document) MarshalJSON() ([]byte, error) {

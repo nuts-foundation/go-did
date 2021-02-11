@@ -218,3 +218,41 @@ func TestService_UnmarshalServiceEndpoint(t *testing.T) {
 		assert.Equal(t, "foobar", target.Value)
 	})
 }
+
+func TestDocument_addVerificationMethodIfNotExists(t *testing.T) {
+	id, _ := ParseDID("did:example:123")
+	vmID, _ := ParseDID("did:example:123#key-1")
+	doc := Document{ID: *id}
+	vm := &VerificationMethod{ID: *vmID}
+	assert.Empty(t, doc.VerificationMethod,
+		"a new doc should not have any verificationMethods")
+
+	doc.addVerificationMethodIfNotExists(vm)
+	assert.Len(t, doc.VerificationMethod, 1,
+		"after adding, the doc should contain 1 verificationMethod")
+
+	assert.Equal(t, id.String(), doc.VerificationMethod[0].Controller.String(),
+		"the empty verificationMethod controller should be configured")
+
+	doc.addVerificationMethodIfNotExists(vm)
+	assert.Len(t, doc.VerificationMethod, 1,
+		"adding the same verificationRecord should should not result in a second entry")
+
+	assert.Equal(t, doc.VerificationMethod[0], vm,
+		"the pointers of the verificationMethod should match")
+
+	vm = &VerificationMethod{ID: *vmID}
+	doc.addVerificationMethodIfNotExists(vm)
+	assert.Len(t, doc.VerificationMethod, 1,
+		"adding a new verificationRecord with same ID should should not result in a second entry")
+
+	vmID, _ = ParseDID("did:example:123#key-2")
+	vm = &VerificationMethod{ID: *vmID}
+
+	doc.addVerificationMethodIfNotExists(vm)
+	assert.Len(t, doc.VerificationMethod, 2,
+		"adding a new verificationRecord with a different id should add an entry")
+
+	assert.Equal(t, doc.VerificationMethod[1], vm,
+		"the pointers of the new verificationMethod should match")
+}
