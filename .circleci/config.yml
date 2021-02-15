@@ -1,0 +1,30 @@
+# Golang CircleCI 2.0 configuration file
+#
+# Check https://circleci.com/docs/2.0/language-go/ for more details
+version: 2.1
+jobs:
+  build:
+    docker:
+      # specify the version
+      - image: circleci/golang:1.15
+
+    working_directory: /go/src/github.com/{{ORG_NAME}}/{{REPO_NAME}}
+    steps:
+      - checkout
+
+      - restore_cache: # restores saved cache if no changes are detected since last run
+          keys:
+            - go-mod-v4-{{ checksum "go.sum" }}
+
+      - run:
+          name: Install dependencies
+          command: go get -t -v ./...
+
+      - save_cache:
+          key: go-mod-v4-{{ checksum "go.sum" }}
+          paths:
+            - "/go/pkg/mod"
+
+      - run:
+          name: Run tests
+          command: go test -v ./... -race

@@ -112,7 +112,7 @@ func Test_Document(t *testing.T) {
 			return
 		}
 
-		actual.AddAssertionMethod(*vm)
+		actual.AddAssertionMethod(vm)
 		//assert.NoError(t, err, "unable to add a new assertionMethod to document")
 		didJson, _ := json.MarshalIndent(actual, "", "  ")
 		t.Logf("resulting json:\n%s", didJson)
@@ -128,7 +128,7 @@ func Test_Document(t *testing.T) {
 			return
 		}
 
-		actual.AddAssertionMethod(*vm)
+		actual.AddAssertionMethod(vm)
 		didJson, _ := json.MarshalIndent(actual, "", "  ")
 		t.Logf("resulting json:\n%s", didJson)
 	})
