@@ -15,6 +15,8 @@ const assertionMethodKey = "assertionMethod"
 const serviceKey = "service"
 const typeKey = "type"
 const serviceEndpointKey = "serviceEndpoint"
+const credentialSubjectKey = "credentialSubject"
+const proofKey = "proof"
 
 var standardAliases marshal.Normalizer = func(m map[string]interface{}) {
 	marshal.KeyAlias("@context", contextKey)(m)
