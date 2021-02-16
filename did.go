@@ -53,4 +53,3 @@ func ParseDID(input string) (*DID, error) {
 
 	return &DID{DID: *ockDid}, nil
 }
-

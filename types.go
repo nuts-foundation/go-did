@@ -27,4 +27,3 @@ func (v *URI) UnmarshalJSON(bytes []byte) error {
 	v.URL = *parsedUrl
 	return nil
 }
-

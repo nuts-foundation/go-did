@@ -10,5 +10,7 @@ const authenticationKey = "authentication"
 const verificationMethodKey = "verificationMethod"
 const assertionMethodKey = "assertionMethod"
 const serviceEndpointKey = "serviceEndpoint"
+const credentialSubjectKey = "credentialSubject"
+const proofKey = "proof"
 
 var pluralContext = marshal.Plural(contextKey)
