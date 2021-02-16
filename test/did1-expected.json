@@ -1,5 +1,5 @@
 {
-  "context": "https://www.w3.org/ns/did/v1",
+  "@context": "https://www.w3.org/ns/did/v1",
   "id": "did:nuts:04cf1e20-378a-4e38-ab1b-401a5018c9ff",
   "controller": [
     "did:nuts:04cf1e20-378a-4e38-ab1b-401a5018c9ff",

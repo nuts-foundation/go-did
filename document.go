@@ -16,7 +16,7 @@ import (
 
 // Document represents a DID Document as specified by the DID Core specification (https://www.w3.org/TR/did-core/).
 type Document struct {
-	Context            []URI                      `json:"context"`
+	Context            []URI                      `json:"@context"`
 	ID                 DID                        `json:"id"`
 	Controller         []DID                      `json:"controller,omitempty"`
 	VerificationMethod []*VerificationMethod      `json:"verificationMethod,omitempty"`
@@ -50,7 +50,7 @@ func (d Document) MarshalJSON() ([]byte, error) {
 
 func (d *Document) UnmarshalJSON(b []byte) error {
 	type Alias Document
-	normalizedDoc, err := marshal.NormalizeDocument(b, standardAliases, pluralContext, marshal.Plural(controllerKey))
+	normalizedDoc, err := marshal.NormalizeDocument(b, pluralContext, marshal.Plural(controllerKey))
 	if err != nil {
 		return err
 	}
@@ -88,7 +88,7 @@ func (s Service) MarshalJSON() ([]byte, error) {
 }
 
 func (s *Service) UnmarshalJSON(data []byte) error {
-	normalizedData, err := marshal.NormalizeDocument(data, standardAliases, pluralContext, marshal.PluralValueOrMap(serviceEndpointKey))
+	normalizedData, err := marshal.NormalizeDocument(data, pluralContext, marshal.PluralValueOrMap(serviceEndpointKey))
 	if err != nil {
 		return err
 	}
