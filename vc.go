@@ -57,13 +57,13 @@ func (vc VerifiableCredential) MarshalJSON() ([]byte, error) {
 	if data, err := json.Marshal(tmp); err != nil {
 		return nil, err
 	} else {
-		return marshal.NormalizeDocument(data, marshal.Unplural(contextKey), marshal.Unplural(credentialSubjectKey), marshal.Unplural(proofKey))
+		return marshal.NormalizeDocument(data, pluralContext, marshal.Unplural(credentialSubjectKey), marshal.Unplural(proofKey))
 	}
 }
 
 func (vc *VerifiableCredential) UnmarshalJSON(b []byte) error {
 	type Alias VerifiableCredential
-	normalizedVC, err := marshal.NormalizeDocument(b, standardAliases, pluralContext, marshal.Plural(credentialSubjectKey), marshal.Plural(proofKey))
+	normalizedVC, err := marshal.NormalizeDocument(b, pluralContext, marshal.Plural(credentialSubjectKey), marshal.Plural(proofKey))
 	if err != nil {
 		return err
 	}
