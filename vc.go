@@ -36,6 +36,7 @@ type CredentialStatus struct {
 	Type			   string					  `json:"type"`
 }
 
+// Proofs returns the basic proofs for this credential. For specific proof contents, UnmarshalProofValue must be used.
 func (vc VerifiableCredential) Proofs() ([]Proof, error) {
 	var (
 		target []Proof
