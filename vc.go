@@ -11,29 +11,29 @@ import (
 // VerifiableCredential represents a credential as defined by the Verifiable Credentials Data Model 1.0 specification (https://www.w3.org/TR/vc-data-model/).
 type VerifiableCredential struct {
 	// Context defines the json-ld context to dereference the URIs
-	Context            []URI                      `json:"context"`
+	Context []URI `json:"context"`
 	// ID is an unique identifier for the credential. It is optional
-	ID                 *URI                        `json:"id,omitempty"`
+	ID *URI `json:"id,omitempty"`
 	// Type holds multiplte types for a credential. A credential must always have the 'VerifiableCredential' type.
-	Type			   []URI					  `json:"type"`
+	Type []URI `json:"type"`
 	// Issuer refers to the party that issued the credential
-	Issuer			   URI 						  `json:"issuer"`
+	Issuer URI `json:"issuer"`
 	// IssuanceDate is a rfc3339 formatted datetime.
-	IssuanceDate 	   time.Time				  `json:"issuanceDate"`
+	IssuanceDate time.Time `json:"issuanceDate"`
 	// ExpirationDate is a rfc3339 formatted datetime. It is optional
-	ExpirationDate	   *time.Time 				  `json:"expirationDate"`
+	ExpirationDate *time.Time `json:"expirationDate"`
 	// CredentialStatus holds information on how the credential can be revoked. It is optional
-	CredentialStatus   *CredentialStatus		  `json:"credentialStatus"`
+	CredentialStatus *CredentialStatus `json:"credentialStatus"`
 	// CredentialSubject holds the actual data for the credential. It must be extracted using the UnmarshalCredentialSubject method and a custom type.
-	CredentialSubject  []interface{}			  `json:"credentialSubject"`
+	CredentialSubject []interface{} `json:"credentialSubject"`
 	// Proof contains the cryptographic proof(s). It must be extracted using the Proofs method or UnmarshalProofValue method for non-generic proof fields.
-	Proof              []interface{}		      `json:"proof"`
+	Proof []interface{} `json:"proof"`
 }
 
 // CredentialStatus defines the method on how to determine a credential is revoked.
 type CredentialStatus struct {
-	ID                 url.URL                    `json:"id"`
-	Type			   string					  `json:"type"`
+	ID   url.URL `json:"id"`
+	Type string  `json:"type"`
 }
 
 // Proofs returns the basic proofs for this credential. For specific proof contents, UnmarshalProofValue must be used.

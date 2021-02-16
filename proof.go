@@ -10,15 +10,15 @@ import (
 type Proof struct {
 	// Type defines the specific proof type used.
 	// For example, an Ed25519Signature2018 type indicates that the proof includes a digital signature produced by an ed25519 cryptographic key.
-	Type			   string					  `json:"type"`
+	Type string `json:"type"`
 	// ProofPurpose defines the intent for the proof, the reason why an entity created it.
 	// Acts as a safeguard to prevent the proof from being misused for a purpose other than the one it was intended for.
 	// For example, a proof can be used for purposes of authentication, for asserting control of a Verifiable Credential (assertionMethod), and several others.
-	ProofPurpose	   string 					  `json:"proofPurpose"`
+	ProofPurpose string `json:"proofPurpose"`
 	// VerificationMethod points to the ID that can be used to verify the proof, eg: a public key.
-	VerificationMethod URI 						  `json:"verificationMethod"`
+	VerificationMethod URI `json:"verificationMethod"`
 	// Created notes when the proof was created using a iso8601 string
-	Created	   		   time.Time 				  `json:"created"`
+	Created time.Time `json:"created"`
 	// Domain specifies the restricted domain of the proof
-	Domain             *string		  			  `json:"domain,omitempty"`
+	Domain *string `json:"domain,omitempty"`
 }

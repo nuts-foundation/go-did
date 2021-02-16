@@ -123,9 +123,9 @@ type VerificationMethod struct {
 // It automatically encodes the provided public key based on the keyType.
 func NewVerificationMethod(id DID, keyType KeyType, controller DID, key crypto.PublicKey) (*VerificationMethod, error) {
 	vm := &VerificationMethod{
-		ID:           id,
-		Type:         keyType,
-		Controller:   controller,
+		ID:         id,
+		Type:       keyType,
+		Controller: controller,
 	}
 
 	if keyType == JsonWebKey2020 {

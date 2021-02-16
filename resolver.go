@@ -33,4 +33,3 @@ type DocumentMetadata struct {
 	Updated    *time.Time
 	Properties map[string]interface{}
 }
-
