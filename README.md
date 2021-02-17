@@ -1,5 +1,5 @@
 
-# github.com/nuts-foundation/go-did [![GoDID](https://circleci.com/gh/nuts-foundation/go-did.svg?style=svg)](https://circleci.com/gh/nuts-foundation/go-did) [![Go Reference](https://pkg.go.dev/badge/github.com/nuts-foundation/go-did.svg)](https://pkg.go.dev/github.com/nuts-foundation/go-did)
+# github.com/nuts-foundation/go-did [![GoDID](https://circleci.com/gh/nuts-foundation/go-did.svg?style=svg)](https://circleci.com/gh/nuts-foundation/go-did) [![Go Reference](https://pkg.go.dev/badge/github.com/nuts-foundation/go-did.svg)](https://pkg.go.dev/github.com/nuts-foundation/go-did) [![Maintainability](https://api.codeclimate.com/v1/badges/4b4c812605d5c4f5ba3f/maintainability)](https://codeclimate.com/github/nuts-foundation/go-did/maintainability)
 
 A library to parse and generate W3C [DID Documents](https://www.w3.org/TR/did-core/).
 
