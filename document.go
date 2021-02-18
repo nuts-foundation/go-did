@@ -36,7 +36,7 @@ func (d *Document) AddAssertionMethod(v *VerificationMethod) {
 }
 
 // AddAuthenticationMethod adds a VerificationMethod as AuthenticationMethod
-// If the controller is not set, it will be set to the documents ID
+// If the controller is not set, it will be set to the document's ID
 func (d *Document) AddAuthenticationMethod(v *VerificationMethod) {
 	d.addVerificationMethodIfNotExists(v)
 	d.Authentication = append(d.Authentication, VerificationRelationship{
@@ -45,8 +45,10 @@ func (d *Document) AddAuthenticationMethod(v *VerificationMethod) {
 	})
 }
 
-// When adding verificationMethods, this metho makes sure there won't be any duplicates
-func (d *Document) addVerificationMethodIfNotExists(v*VerificationMethod) {
+// addVerificationMethodIfNotExists will add the verificationMethod to the document.
+// This method makes sure there won't be any duplicates based on pointer or ID.
+// If the controller of the verificationMethod is not set, the document's DID will be used.
+func (d *Document) addVerificationMethodIfNotExists(v *VerificationMethod) {
 	for _, ptr := range d.VerificationMethod {
 		// check if the pointer is already in the list
 		if ptr == v {
