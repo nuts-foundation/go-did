@@ -27,3 +27,7 @@ func (v *URI) UnmarshalJSON(bytes []byte) error {
 	v.URL = *parsedUrl
 	return nil
 }
+
+func (v URI) String() string {
+	return v.URL.String()
+}

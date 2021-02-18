@@ -14,15 +14,17 @@ import (
 	"github.com/nuts-foundation/go-did/internal/marshal"
 )
 
+const ErrKeyNotFoundFmt = "key not found: %s"
+
 // Document represents a DID Document as specified by the DID Core specification (https://www.w3.org/TR/did-core/).
 type Document struct {
-	Context            []URI                      `json:"@context"`
-	ID                 DID                        `json:"id"`
-	Controller         []DID                      `json:"controller,omitempty"`
-	VerificationMethod []*VerificationMethod      `json:"verificationMethod,omitempty"`
-	Authentication     []VerificationRelationship `json:"authentication,omitempty"`
-	AssertionMethod    []VerificationRelationship `json:"assertionMethod,omitempty"`
-	Service            []Service                  `json:"service,omitempty"`
+	Context            []URI                     `json:"@context"`
+	ID                 DID                       `json:"id"`
+	Controller         []DID                     `json:"controller,omitempty"`
+	VerificationMethod []*VerificationMethod     `json:"verificationMethod,omitempty"`
+	Authentication     VerificationRelationships `json:"authentication,omitempty"`
+	AssertionMethod    VerificationRelationships `json:"assertionMethod,omitempty"`
+	Service            Services                  `json:"service,omitempty"`
 }
 
 // Add a VerificationMethod as AssertionMethod
@@ -31,11 +33,10 @@ func (d *Document) AddAssertionMethod(v *VerificationMethod) {
 		v.Controller = d.ID
 	}
 	d.VerificationMethod = append(d.VerificationMethod, v)
-	d.AssertionMethod = append(d.AssertionMethod, VerificationRelationship{
+	d.AssertionMethod[v.ID.String()] = VerificationRelationship{
 		VerificationMethod: v,
 		reference:          v.ID,
-	})
-
+	}
 }
 
 func (d Document) MarshalJSON() ([]byte, error) {
@@ -98,6 +99,32 @@ func (s *Service) UnmarshalJSON(data []byte) error {
 		return err
 	}
 	*s = (Service)(result)
+	return nil
+}
+
+
+// Services is an array of Service
+type Services map[string]Service
+
+func (v Services) MarshalJSON() ([]byte, error) {
+	arr := make([]Service, 0, len(v))
+	for _, curr := range v {
+		arr = append(arr, curr)
+	}
+	return json.Marshal(arr)
+}
+
+func (v *Services) UnmarshalJSON(b []byte) error {
+	type arr []Service
+	var value arr
+	if err := json.Unmarshal(b, &value); err != nil {
+		return err
+	}
+	asMap := make(map[string]Service, len(value))
+	for _, curr := range value {
+		asMap[curr.ID.String()] = curr
+	}
+	*v = asMap
 	return nil
 }
 
@@ -193,6 +220,31 @@ type VerificationRelationship struct {
 	reference DID
 }
 
+// VerificationRelationships is an array of VerificationRelationship
+type VerificationRelationships map[string]VerificationRelationship
+
+func (v VerificationRelationships) MarshalJSON() ([]byte, error) {
+	arr := make([]VerificationRelationship, 0, len(v))
+	for _, curr := range v {
+		arr = append(arr, curr)
+	}
+	return json.Marshal(arr)
+}
+
+func (v *VerificationRelationships) UnmarshalJSON(b []byte) error {
+	type arr []VerificationRelationship
+	var value arr
+	if err := json.Unmarshal(b, &value); err != nil {
+		return err
+	}
+	asMap := make(map[string]VerificationRelationship, len(value))
+	for _, curr := range value {
+		asMap[curr.reference.String()] = curr
+	}
+	*v = asMap
+	return nil
+}
+
 func (v VerificationRelationship) MarshalJSON() ([]byte, error) {
 	if v.reference.Empty() {
 		return json.Marshal(*v.VerificationMethod)
@@ -234,7 +286,7 @@ func (v *VerificationMethod) UnmarshalJSON(bytes []byte) error {
 	return nil
 }
 
-func resolveVerificationRelationships(relationships []VerificationRelationship, methods []*VerificationMethod) error {
+func resolveVerificationRelationships(relationships VerificationRelationships, methods []*VerificationMethod) error {
 	for i, relationship := range relationships {
 		if relationship.reference.Empty() {
 			continue
@@ -242,8 +294,9 @@ func resolveVerificationRelationships(relationships []VerificationRelationship, 
 		if resolved := resolveVerificationRelationship(relationship.reference, methods); resolved == nil {
 			return fmt.Errorf("unable to resolve %s: %s", verificationMethodKey, relationship.reference.String())
 		} else {
-			relationships[i] = *resolved
-			relationships[i].reference = relationship.reference
+			v := *resolved
+			v.reference = relationship.reference
+			relationships[i] = v
 		}
 	}
 	return nil

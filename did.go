@@ -17,6 +17,10 @@ func (d DID) Empty() bool {
 	return d.Method == ""
 }
 
+func (d DID) String() string {
+	return d.DID.String()
+}
+
 // Equals checks whether the DID is exactly equal to another DID
 func (d DID) Equals(other DID) bool {
 	return d.String() == other.String()

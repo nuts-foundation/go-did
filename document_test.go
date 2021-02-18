@@ -67,19 +67,20 @@ func Test_Document(t *testing.T) {
 			t.Errorf("expected:\n%s\n, got:\n%s", expected, actual.Controller[1].String())
 		}
 	})
+	const expectedKeyID = "did:nuts:04cf1e20-378a-4e38-ab1b-401a5018c9ff#key-1"
 	t.Run("it can parse assertionMethods", func(t *testing.T) {
 		if !assert.Len(t, actual.AssertionMethod, 1) {
 			return
 		}
-		assert.Equal(t, "did:nuts:04cf1e20-378a-4e38-ab1b-401a5018c9ff#key-1", actual.AssertionMethod[0].ID.String())
-		assert.Equal(t, "SVqB4JcUD6lsfvqMr-OKUNUphdNn64Eay60978ZlL74", actual.AssertionMethod[0].PublicKeyJwk["x"])
+		assert.Equal(t, expectedKeyID, actual.AssertionMethod[expectedKeyID].ID.String())
+		assert.Equal(t, "SVqB4JcUD6lsfvqMr-OKUNUphdNn64Eay60978ZlL74", actual.AssertionMethod[expectedKeyID].PublicKeyJwk["x"])
 	})
 	t.Run("it can parse authentication", func(t *testing.T) {
 		if !assert.Len(t, actual.Authentication, 2) {
 			return
 		}
-		assert.Equal(t, "did:nuts:04cf1e20-378a-4e38-ab1b-401a5018c9ff#key-1", actual.Authentication[0].ID.String())
-		assert.Equal(t, "SVqB4JcUD6lsfvqMr-OKUNUphdNn64Eay60978ZlL74", actual.Authentication[0].PublicKeyJwk["x"])
+		assert.Equal(t, expectedKeyID, actual.Authentication[expectedKeyID].ID.String())
+		assert.Equal(t, "SVqB4JcUD6lsfvqMr-OKUNUphdNn64Eay60978ZlL74", actual.Authentication[expectedKeyID].PublicKeyJwk["x"])
 	})
 	t.Run("it can parse services", func(t *testing.T) {
 		if len(actual.Service) != 2 {
@@ -87,19 +88,19 @@ func Test_Document(t *testing.T) {
 		}
 
 		expected := "nuts:bolt:eoverdracht"
-		if expected != actual.Service[0].Type {
-			t.Errorf("expected:\n%s\n, got:\n%s", expected, actual.Service[0].Type)
+		const expectedID = "did:nuts:04cf1e20-378a-4e38-ab1b-401a5018c9ff#service-1"
+		if expected != actual.Service[expectedID].Type {
+			t.Errorf("expected:\n%s\n, got:\n%s", expected, actual.Service[expectedID].Type)
 		}
 
-		expected = "did:nuts:04cf1e20-378a-4e38-ab1b-401a5018c9ff#service-1"
-		if expected != actual.Service[0].ID.String() {
-			t.Errorf("expected:\n%s\n, got:\n%s", expected, actual.Service[0].ID.String())
+		if expectedID != actual.Service[expectedID].ID.String() {
+			t.Errorf("expected:\n%s\n, got:\n%s", expectedID, actual.Service[expectedID].ID.String())
 		}
 
 	})
 
 	t.Run("it can link verification relationships bases on a key id", func(t *testing.T) {
-		assert.Equal(t, actual.VerificationMethod[0], actual.AssertionMethod[0].VerificationMethod)
+		assert.Equal(t, actual.VerificationMethod[0], actual.AssertionMethod[expectedKeyID].VerificationMethod)
 	})
 
 	t.Run("it can add assertionMethods with json web key", func(t *testing.T) {
@@ -134,7 +135,7 @@ func Test_Document(t *testing.T) {
 	})
 
 	t.Run("it can parse a jwk in a verification method", func(t *testing.T) {
-		keyAsJWK, err := actual.Authentication[0].JWK()
+		keyAsJWK, err := actual.Authentication[expectedKeyID].JWK()
 		if !assert.NoError(t, err, "expected key to be converted to a jwk.key") {
 			return
 		}
