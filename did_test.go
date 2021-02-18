@@ -2,6 +2,7 @@ package did
 
 import (
 	"encoding/json"
+	"fmt"
 	"testing"
 
 	ockamDid "github.com/ockam-network/did"
@@ -51,6 +52,12 @@ func TestParseDID(t *testing.T) {
 	if id.String() != "did:nuts:123" {
 		t.Errorf("expected parsed did to be 'did:nuts:123', got: %s", id.String())
 	}
+}
+
+func TestDID_String(t *testing.T) {
+	expected := "did:nuts:123"
+	id, _ := ParseDID(expected)
+	assert.Equal(t, expected, fmt.Sprintf("%s", *id))
 }
 
 func TestDID_Empty(t *testing.T) {

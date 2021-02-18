@@ -17,6 +17,11 @@ func (d DID) Empty() bool {
 	return d.Method == ""
 }
 
+// String returns the DID as formatted string.
+func (d DID) String() string {
+	return d.DID.String()
+}
+
 // Equals checks whether the DID is exactly equal to another DID
 // The check is case sensitive.
 func (d DID) Equals(other DID) bool {
