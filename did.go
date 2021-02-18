@@ -18,6 +18,7 @@ func (d DID) Empty() bool {
 }
 
 // Equals checks whether the DID is exactly equal to another DID
+// The check is case sensitive.
 func (d DID) Equals(other DID) bool {
 	return d.String() == other.String()
 }
