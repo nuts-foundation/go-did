@@ -202,10 +202,10 @@ func TestService_UnmarshalJSON(t *testing.T) {
 }
 
 func TestService_UnmarshalServiceEndpoint(t *testing.T) {
-	type targetType struct {
-		Value string
-	}
 	t.Run("ok", func(t *testing.T) {
+		type targetType struct {
+			Value string
+		}
 		input := Service{}
 		json.Unmarshal([]byte(`{
 		  "id":"did:example:123#linked-domain",
@@ -216,6 +216,18 @@ func TestService_UnmarshalServiceEndpoint(t *testing.T) {
 		err := input.UnmarshalServiceEndpoint(&target)
 		assert.NoError(t, err)
 		assert.Equal(t, "foobar", target.Value)
+	})
+	t.Run("single value", func(t *testing.T) {
+		input := Service{}
+		json.Unmarshal([]byte(`{
+		  "id":"did:example:123#linked-domain",
+		  "type":"custom",
+		  "serviceEndpoint": "http://awesome-url"
+		}`), &input)
+		var target string
+		err := input.UnmarshalServiceEndpoint(&target)
+		assert.NoError(t, err)
+		assert.Equal(t, "http://awesome-url", target)
 	})
 }
 

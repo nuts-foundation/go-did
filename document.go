@@ -131,7 +131,13 @@ func (s *Service) UnmarshalJSON(data []byte) error {
 
 // Unmarshal unmarshalls the service endpoint into a domain-specific type.
 func (s Service) UnmarshalServiceEndpoint(target interface{}) error {
-	if asJSON, err := json.Marshal(s.ServiceEndpoint); err != nil {
+	var valueToMarshal interface{}
+	if asSlice, ok := s.ServiceEndpoint.([]interface{}); ok && len(asSlice) == 1 {
+		valueToMarshal = asSlice[0]
+	} else {
+		valueToMarshal = s.ServiceEndpoint
+	}
+	if asJSON, err := json.Marshal(valueToMarshal); err != nil {
 		return err
 	} else {
 		return json.Unmarshal(asJSON, target)
