@@ -231,40 +231,67 @@ func TestService_UnmarshalServiceEndpoint(t *testing.T) {
 	})
 }
 
-func TestDocument_addVerificationMethodIfNotExists(t *testing.T) {
-	id, _ := ParseDID("did:example:123")
-	vmID, _ := ParseDID("did:example:123#key-1")
-	doc := Document{ID: *id}
-	vm := &VerificationMethod{ID: *vmID}
-	assert.Empty(t, doc.VerificationMethod,
-		"a new doc should not have any verificationMethods")
+func Test_VerificationMethods(t *testing.T) {
+	id123, _ := ParseDID("did:example:123")
+	id456, _ := ParseDID("did:example:456")
+	unknownID, _ := ParseDID("did:example:abc")
 
-	doc.addVerificationMethodIfNotExists(vm)
-	assert.Len(t, doc.VerificationMethod, 1,
-		"after adding, the doc should contain 1 verificationMethod")
+	t.Run("Remove", func(t *testing.T) {
+		t.Run("ok", func(t *testing.T) {
+			vms := VerificationMethods{
+				&VerificationMethod{ID: *id123},
+				&VerificationMethod{ID: *id456},
+			}
+			removedVM := vms.Remove(*id456)
+			assert.Len(t, vms, 1,
+				"the verification method should have been deleted")
+			assert.Equal(t, *id456, removedVM.ID)
+			assert.Equal(t, *id123, vms[0].ID)
+		})
 
-	assert.Equal(t, id.String(), doc.VerificationMethod[0].Controller.String(),
-		"the empty verificationMethod controller should be configured")
+		t.Run("not found", func(t *testing.T) {
+			vms := VerificationMethods{
+				&VerificationMethod{ID: *id123},
+				&VerificationMethod{ID: *id456},
+			}
+			removedVM := vms.Remove(*unknownID)
+			assert.Nil(t, removedVM)
+			assert.Len(t, vms, 2)
+		})
+	})
 
-	doc.addVerificationMethodIfNotExists(vm)
-	assert.Len(t, doc.VerificationMethod, 1,
-		"adding the same verificationRecord should should not result in a second entry")
+	t.Run("FindByID", func(t *testing.T) {
+		t.Run("found", func(t *testing.T) {
+			vms := VerificationMethods{
+				&VerificationMethod{ID: *id123},
+				&VerificationMethod{ID: *id456},
+			}
+			vm := vms.FindByID(*id123)
+			assert.Equal(t, vm.ID, *id123)
+		})
+		t.Run("unknown", func(t *testing.T) {
+			vms := VerificationMethods{
+				&VerificationMethod{ID: *id123},
+				&VerificationMethod{ID: *id456},
+			}
+			vm := vms.FindByID(*unknownID)
+			assert.Nil(t, vm)
+		})
 
-	assert.Equal(t, doc.VerificationMethod[0], vm,
-		"the pointers of the verificationMethod should match")
+	})
 
-	vm = &VerificationMethod{ID: *vmID}
-	doc.addVerificationMethodIfNotExists(vm)
-	assert.Len(t, doc.VerificationMethod, 1,
-		"adding a new verificationRecord with same ID should should not result in a second entry")
-
-	vmID, _ = ParseDID("did:example:123#key-2")
-	vm = &VerificationMethod{ID: *vmID}
-
-	doc.addVerificationMethodIfNotExists(vm)
-	assert.Len(t, doc.VerificationMethod, 2,
-		"adding a new verificationRecord with a different id should add an entry")
-
-	assert.Equal(t, doc.VerificationMethod[1], vm,
-		"the pointers of the new verificationMethod should match")
+	t.Run("Add", func(t *testing.T) {
+		t.Run("adds non existing", func(t *testing.T) {
+			vms := VerificationMethods{}
+			vms.Add(&VerificationMethod{ID: *id123})
+			assert.Len(t, vms, 1)
+		})
+		t.Run("does not add vm with duplicate id", func(t *testing.T) {
+			vms := VerificationMethods{
+				&VerificationMethod{ID: *id123},
+			}
+			vms.Add(&VerificationMethod{ID: *id123})
+			assert.Len(t, vms, 1)
+		})
+	})
 }
