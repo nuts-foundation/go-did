@@ -295,3 +295,55 @@ func Test_VerificationMethods(t *testing.T) {
 		})
 	})
 }
+
+func TestVerificationRelationships(t *testing.T) {
+	id123, _ := ParseDID("did:example:123")
+	id456, _ := ParseDID("did:example:456")
+	unknownID, _ := ParseDID("did:example:abc")
+
+	t.Run("Remove", func(t *testing.T) {
+		t.Run("known value", func(t *testing.T) {
+			vmRels := VerificationRelationships{
+				VerificationRelationship{VerificationMethod: &VerificationMethod{ID: *id123}},
+			}
+			removedRel := vmRels.Remove(*id123)
+			assert.Empty(t, vmRels,
+				"expected vmRels to be empty after removing the only element")
+			assert.Equal(t, removedRel.ID, *id123)
+		})
+
+		t.Run("known value", func(t *testing.T) {
+			vmRels := VerificationRelationships{
+				VerificationRelationship{VerificationMethod: &VerificationMethod{ID: *id123}},
+			}
+			removedRel := vmRels.Remove(*unknownID)
+			assert.Nil(t, removedRel,
+				"expected Remove not to return a value when trying to remove an unknown value")
+			assert.Len(t, vmRels, 1,
+			"expected vmRels to contain all elements after failed removal")
+		})
+	})
+
+	t.Run("FindByID", func(t *testing.T) {
+		vmRels := VerificationRelationships{
+			VerificationRelationship{VerificationMethod: &VerificationMethod{ID: *id123}},
+			VerificationRelationship{VerificationMethod: &VerificationMethod{ID: *id456}},
+		}
+
+		t.Run("for a known value", func(t *testing.T) {
+			foundValue := vmRels.FindByID(*id123)
+			assert.NotNil(t, foundValue,
+				"expected value could be found")
+
+			assert.Equal(t, foundValue.ID, *id123,
+				"expected ID of found value to match searched ID")
+		})
+
+		t.Run("for an unknown value", func(t *testing.T) {
+			foundValue := vmRels.FindByID(*unknownID)
+			assert.Nil(t, foundValue,
+				"expected value could not be found")
+
+		})
+	})
+}

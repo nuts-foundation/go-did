@@ -16,13 +16,13 @@ import (
 
 // Document represents a DID Document as specified by the DID Core specification (https://www.w3.org/TR/did-core/).
 type Document struct {
-	Context            []URI                      `json:"@context"`
-	ID                 DID                        `json:"id"`
-	Controller         []DID                      `json:"controller,omitempty"`
-	VerificationMethod VerificationMethods        `json:"verificationMethod,omitempty"`
-	Authentication     []VerificationRelationship `json:"authentication,omitempty"`
-	AssertionMethod    []VerificationRelationship `json:"assertionMethod,omitempty"`
-	Service            []Service                  `json:"service,omitempty"`
+	Context            []URI                     `json:"@context"`
+	ID                 DID                       `json:"id"`
+	Controller         []DID                     `json:"controller,omitempty"`
+	VerificationMethod VerificationMethods       `json:"verificationMethod,omitempty"`
+	Authentication     VerificationRelationships `json:"authentication,omitempty"`
+	AssertionMethod    VerificationRelationships `json:"assertionMethod,omitempty"`
+	Service            []Service                 `json:"service,omitempty"`
 }
 
 type VerificationMethods []*VerificationMethod
@@ -69,6 +69,33 @@ func (vms *VerificationMethods) Add(v *VerificationMethod) {
 		}
 	}
 	*vms = append(*vms, v)
+}
+
+type VerificationRelationships []VerificationRelationship
+
+func (vmr VerificationRelationships) FindByID(id DID) *VerificationRelationship {
+	for _, r := range vmr {
+		if r.ID.Equals(id) {
+			return &r
+		}
+	}
+	return nil
+}
+
+func (vmr *VerificationRelationships) Remove(id DID) *VerificationRelationship {
+	var (
+		filteredVMRels []VerificationRelationship
+		removedRel     *VerificationRelationship
+	)
+	for _, r := range *vmr {
+		if !r.ID.Equals(id) {
+			filteredVMRels = append(filteredVMRels, r)
+		} else {
+			removedRel = &r
+		}
+	}
+	*vmr = filteredVMRels
+	return removedRel
 }
 
 // Add a VerificationMethod as AssertionMethod
