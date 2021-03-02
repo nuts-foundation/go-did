@@ -27,7 +27,7 @@ type Document struct {
 
 type VerificationMethods []*VerificationMethod
 
-// Find the first VerificationMethod which matches the provided DID.
+// FindByID find the first VerificationMethod which matches the provided DID.
 // Returns nil when not found
 func (vms VerificationMethods) FindByID(id DID) *VerificationMethod {
 	for _, vm := range vms {
@@ -38,8 +38,8 @@ func (vms VerificationMethods) FindByID(id DID) *VerificationMethod {
 	return nil
 }
 
-// Ensures the verificationMethods does not have a verification method with the provided DID.
-// If a verificationMethod was found with the given DID, it will be returned
+// Remove removes a VerificationMethod from the slice.
+// If a verificationMethod was removed with the given DID, it will be returned
 func (vms *VerificationMethods) Remove(id DID) *VerificationMethod {
 	var (
 		filteredVMS []*VerificationMethod
@@ -73,15 +73,21 @@ func (vms *VerificationMethods) Add(v *VerificationMethod) {
 
 type VerificationRelationships []VerificationRelationship
 
-func (vmr VerificationRelationships) FindByID(id DID) *VerificationRelationship {
+// FindByID returns the first VerificationRelationship that matches with the id.
+// For comparison both the ID of the embedded VerificationMethod and reference is used.
+func (vmr VerificationRelationships) FindByID(id DID) *VerificationMethod {
 	for _, r := range vmr {
-		if r.ID.Equals(id) {
-			return &r
+		if r.VerificationMethod != nil {
+			if r.VerificationMethod.ID.Equals(id) {
+				return r.VerificationMethod
+			}
 		}
 	}
 	return nil
 }
 
+// Remove removes a VerificationRelationship from the slice.
+// If a VerificationRelationship was removed with the given DID, it will be returned
 func (vmr *VerificationRelationships) Remove(id DID) *VerificationRelationship {
 	var (
 		filteredVMRels []VerificationRelationship
@@ -98,7 +104,7 @@ func (vmr *VerificationRelationships) Remove(id DID) *VerificationRelationship {
 	return removedRel
 }
 
-// Add a VerificationMethod as AssertionMethod
+// AddAssertionMethod adds a VerificationMethod as AssertionMethod
 // If the controller is not set, it will be set to the documents ID
 func (d *Document) AddAssertionMethod(v *VerificationMethod) {
 	d.VerificationMethod.Add(v)
