@@ -118,20 +118,20 @@ func (vmr *VerificationRelationships) Add(vm *VerificationMethod) {
 // AddAssertionMethod adds a VerificationMethod as AssertionMethod
 // If the controller is not set, it will be set to the documents ID
 func (d *Document) AddAssertionMethod(v *VerificationMethod) {
-	d.VerificationMethod.Add(v)
 	if v.Controller.Empty() {
 		v.Controller = d.ID
 	}
+	d.VerificationMethod.Add(v)
 	d.AssertionMethod.Add(v)
 }
 
 // AddAuthenticationMethod adds a VerificationMethod as AuthenticationMethod
 // If the controller is not set, it will be set to the document's ID
 func (d *Document) AddAuthenticationMethod(v *VerificationMethod) {
-	d.VerificationMethod.Add(v)
 	if v.Controller.Empty() {
 		v.Controller = d.ID
 	}
+	d.VerificationMethod.Add(v)
 	d.Authentication.Add(v)
 }
 
