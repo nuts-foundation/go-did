@@ -4,11 +4,15 @@
 version: 2.1
 jobs:
   build:
+
+    environment:
+      CC_TEST_REPORTER_ID: 5d3d308e4b004007b0fb88945513b93bab1a6222cc989413820e44ce740824a1
+
     docker:
-      # specify the version
       - image: circleci/golang:1.15
 
     working_directory: /go/src/github.com/{{ORG_NAME}}/{{REPO_NAME}}
+
     steps:
       - checkout
 
@@ -26,5 +30,16 @@ jobs:
             - "/go/pkg/mod"
 
       - run:
+          name: Setup Code Climate test-reporter
+          command: |
+            # download test reporter as a static binary
+            curl -L https://codeclimate.com/downloads/test-reporter/test-reporter-latest-linux-amd64 > ./cc-test-reporter
+            chmod +x ./cc-test-reporter
+
+      - run:
           name: Run tests
-          command: go test -v ./... -race
+          command: |
+            go test -v ./... -race
+            ./cc-test-reporter before-build
+            go test ./... -coverprofile=coverage.txt
+            ./cc-test-reporter after-build --exit-code $?
