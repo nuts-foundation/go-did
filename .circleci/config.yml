@@ -42,4 +42,4 @@ jobs:
             go test -v ./... -race
             ./cc-test-reporter before-build
             go test ./... -coverprofile=coverage.txt
-            ./cc-test-reporter after-build --exit-code $?
+            ./cc-test-reporter after-build --coverage-input-type gocov --exit-code $?
