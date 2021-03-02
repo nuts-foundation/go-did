@@ -104,6 +104,17 @@ func (vmr *VerificationRelationships) Remove(id DID) *VerificationRelationship {
 	return removedRel
 }
 
+// Add adds a verificationMethod to a relationship collection.
+// When the collection already contains the method it will not be added again.
+func (vmr *VerificationRelationships) Add(vm *VerificationMethod) {
+	for _, rel := range *vmr {
+		if rel.ID.Equals(vm.ID) {
+			return
+		}
+	}
+	*vmr = append(*vmr, VerificationRelationship{vm, vm.ID})
+}
+
 // AddAssertionMethod adds a VerificationMethod as AssertionMethod
 // If the controller is not set, it will be set to the documents ID
 func (d *Document) AddAssertionMethod(v *VerificationMethod) {
@@ -111,10 +122,7 @@ func (d *Document) AddAssertionMethod(v *VerificationMethod) {
 	if v.Controller.Empty() {
 		v.Controller = d.ID
 	}
-	d.AssertionMethod = append(d.AssertionMethod, VerificationRelationship{
-		VerificationMethod: v,
-		reference:          v.ID,
-	})
+	d.AssertionMethod.Add(v)
 }
 
 // AddAuthenticationMethod adds a VerificationMethod as AuthenticationMethod
@@ -124,10 +132,7 @@ func (d *Document) AddAuthenticationMethod(v *VerificationMethod) {
 	if v.Controller.Empty() {
 		v.Controller = d.ID
 	}
-	d.Authentication = append(d.Authentication, VerificationRelationship{
-		VerificationMethod: v,
-		reference:          v.ID,
-	})
+	d.Authentication.Add(v)
 }
 
 func (d Document) MarshalJSON() ([]byte, error) {

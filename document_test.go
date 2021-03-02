@@ -14,6 +14,11 @@ import (
 )
 
 func Test_Document(t *testing.T) {
+	id123, _ := ParseDID("did:example:123")
+	id123Method, _ := ParseDID("did:example:123#method")
+	id456, _ := ParseDID("did:example:456")
+
+
 	t.Run("it can marshal a json did into a Document", func(t *testing.T) {
 		jsonDoc := `
 {
@@ -139,6 +144,68 @@ func Test_Document(t *testing.T) {
 			return
 		}
 		assert.Equal(t, "EC", keyAsJWK.KeyType().String())
+	})
+
+	t.Run("AddAssertionMethod", func(t *testing.T) {
+		t.Run("it adds the method to assertionMethod once", func(t *testing.T) {
+			doc := Document{ID: *id123}
+			method := &VerificationMethod{ID: *id123Method}
+			doc.AddAssertionMethod(method)
+			doc.AddAssertionMethod(method)
+			assert.Len(t, doc.AssertionMethod, 1)
+			assert.Equal(t, doc.AssertionMethod[0].VerificationMethod, method)
+		})
+		t.Run("it adds the method to the verificationMethods once", func(t *testing.T) {
+			doc := Document{ID: *id123}
+			method := &VerificationMethod{ID: *id123Method}
+			doc.AddAssertionMethod(method)
+			doc.AddAssertionMethod(method)
+			assert.Len(t, doc.VerificationMethod, 1)
+			assert.Equal(t, doc.VerificationMethod[0], method)
+		})
+		t.Run("it sets the controller when not set", func(t *testing.T) {
+			doc := Document{ID: *id123}
+			method := &VerificationMethod{ID: *id123Method}
+			doc.AddAssertionMethod(method)
+			assert.Equal(t, method.Controller, *id123)
+		})
+		t.Run("it leaves the controller when already set", func(t *testing.T) {
+			doc := Document{ID: *id123}
+			method := &VerificationMethod{ID: *id123Method, Controller: *id456}
+			doc.AddAssertionMethod(method)
+			assert.Equal(t, method.Controller, *id456)
+		})
+	})
+
+	t.Run("AddAuthenticationMethod", func(t *testing.T) {
+		t.Run("it adds the method to AuthenticationMethod once", func(t *testing.T) {
+			doc := Document{ID: *id123}
+			method := &VerificationMethod{ID: *id123Method}
+			doc.AddAuthenticationMethod(method)
+			doc.AddAuthenticationMethod(method)
+			assert.Len(t, doc.Authentication, 1)
+			assert.Equal(t, doc.Authentication[0].VerificationMethod, method)
+		})
+		t.Run("it adds the method to the AuthenticationMethods once", func(t *testing.T) {
+			doc := Document{ID: *id123}
+			method := &VerificationMethod{ID: *id123Method}
+			doc.AddAuthenticationMethod(method)
+			doc.AddAuthenticationMethod(method)
+			assert.Len(t, doc.Authentication, 1)
+			assert.Equal(t, doc.Authentication[0].VerificationMethod, method)
+		})
+		t.Run("it sets the controller when not set", func(t *testing.T) {
+			doc := Document{ID: *id123}
+			method := &VerificationMethod{ID: *id123Method}
+			doc.AddAuthenticationMethod(method)
+			assert.Equal(t, method.Controller, *id123)
+		})
+		t.Run("it leaves the controller when already set", func(t *testing.T) {
+			doc := Document{ID: *id123}
+			method := &VerificationMethod{ID: *id123Method, Controller: *id456}
+			doc.AddAuthenticationMethod(method)
+			assert.Equal(t, method.Controller, *id456)
+		})
 	})
 }
 
@@ -344,7 +411,7 @@ func TestVerificationRelationships(t *testing.T) {
 			assert.NotNil(t, foundValue,
 				"expected value could be found")
 
-			assert.Equal(t, foundValue, *id456,
+			assert.Equal(t, foundValue.ID, *id456,
 				"expected ID of found value to match searched ID")
 		})
 
@@ -353,6 +420,22 @@ func TestVerificationRelationships(t *testing.T) {
 			assert.Nil(t, foundValue,
 				"expected value could not be found")
 
+		})
+	})
+	t.Run("Add", func(t *testing.T) {
+		t.Run("it adds", func(t *testing.T) {
+			rels := VerificationRelationships{}
+			rels.Add(&VerificationMethod{ID: *id123})
+			assert.Len(t, rels, 1)
+			assert.Equal(t, rels[0].ID, *id123)
+		})
+
+		t.Run("it does not add when already present", func(t *testing.T) {
+			rels := VerificationRelationships{}
+			rels.Add(&VerificationMethod{ID: *id123})
+			rels.Add(&VerificationMethod{ID: *id123})
+			assert.Len(t, rels, 1)
+			assert.Equal(t, rels[0].ID, *id123)
 		})
 	})
 }
