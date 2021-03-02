@@ -39,7 +39,6 @@ jobs:
       - run:
           name: Run tests
           command: |
-            go test -v ./... -race
             ./cc-test-reporter before-build
-            go test ./... -coverprofile c.out
-            ./cc-test-reporter after-build --coverage-input-type gocov --exit-code $?
+            go test -coverprofile c.out ./...
+            ./cc-test-reporter after-build --exit-code $?
