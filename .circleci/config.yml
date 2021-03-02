@@ -41,4 +41,4 @@ jobs:
           command: |
             ./cc-test-reporter before-build
             go test -coverprofile c.out ./...
-            ./cc-test-reporter after-build --exit-code $?
+            ./cc-test-reporter after-build -p $(go list -m) --exit-code $?
