@@ -16,40 +16,49 @@ import (
 
 // Document represents a DID Document as specified by the DID Core specification (https://www.w3.org/TR/did-core/).
 type Document struct {
-	Context            []URI                      `json:"@context"`
-	ID                 DID                        `json:"id"`
-	Controller         []DID                      `json:"controller,omitempty"`
-	VerificationMethod []*VerificationMethod      `json:"verificationMethod,omitempty"`
-	Authentication     []VerificationRelationship `json:"authentication,omitempty"`
-	AssertionMethod    []VerificationRelationship `json:"assertionMethod,omitempty"`
-	Service            []Service                  `json:"service,omitempty"`
+	Context            []URI                     `json:"@context"`
+	ID                 DID                       `json:"id"`
+	Controller         []DID                     `json:"controller,omitempty"`
+	VerificationMethod VerificationMethods       `json:"verificationMethod,omitempty"`
+	Authentication     VerificationRelationships `json:"authentication,omitempty"`
+	AssertionMethod    VerificationRelationships `json:"assertionMethod,omitempty"`
+	Service            []Service                 `json:"service,omitempty"`
 }
 
-// Add a VerificationMethod as AssertionMethod
-// If the controller is not set, it will be set to the documents ID
-func (d *Document) AddAssertionMethod(v *VerificationMethod) {
-	d.addVerificationMethodIfNotExists(v)
-	d.AssertionMethod = append(d.AssertionMethod, VerificationRelationship{
-		VerificationMethod: v,
-		reference:          v.ID,
-	})
+type VerificationMethods []*VerificationMethod
+
+// FindByID find the first VerificationMethod which matches the provided DID.
+// Returns nil when not found
+func (vms VerificationMethods) FindByID(id DID) *VerificationMethod {
+	for _, vm := range vms {
+		if vm.ID.Equals(id) {
+			return vm
+		}
+	}
+	return nil
 }
 
-// AddAuthenticationMethod adds a VerificationMethod as AuthenticationMethod
-// If the controller is not set, it will be set to the document's ID
-func (d *Document) AddAuthenticationMethod(v *VerificationMethod) {
-	d.addVerificationMethodIfNotExists(v)
-	d.Authentication = append(d.Authentication, VerificationRelationship{
-		VerificationMethod: v,
-		reference:          v.ID,
-	})
+// Remove removes a VerificationMethod from the slice.
+// If a verificationMethod was removed with the given DID, it will be returned
+func (vms *VerificationMethods) Remove(id DID) *VerificationMethod {
+	var (
+		filteredVMS []*VerificationMethod
+		foundVM     *VerificationMethod
+	)
+	for _, vm := range *vms {
+		if !vm.ID.Equals(id) {
+			filteredVMS = append(filteredVMS, vm)
+		} else {
+			foundVM = vm
+		}
+	}
+	*vms = filteredVMS
+	return foundVM
 }
 
-// addVerificationMethodIfNotExists will add the verificationMethod to the document.
-// This method makes sure there won't be any duplicates based on pointer or ID.
-// If the controller of the verificationMethod is not set, the document's DID will be used.
-func (d *Document) addVerificationMethodIfNotExists(v *VerificationMethod) {
-	for _, ptr := range d.VerificationMethod {
+// Add adds a verificationMethod to the verificationMethods if it not already present.
+func (vms *VerificationMethods) Add(v *VerificationMethod) {
+	for _, ptr := range *vms {
 		// check if the pointer is already in the list
 		if ptr == v {
 			return
@@ -59,11 +68,71 @@ func (d *Document) addVerificationMethodIfNotExists(v *VerificationMethod) {
 			return
 		}
 	}
-	// If the controller is not set, set the current document as controller
+	*vms = append(*vms, v)
+}
+
+type VerificationRelationships []VerificationRelationship
+
+// FindByID returns the first VerificationRelationship that matches with the id.
+// For comparison both the ID of the embedded VerificationMethod and reference is used.
+func (vmr VerificationRelationships) FindByID(id DID) *VerificationMethod {
+	for _, r := range vmr {
+		if r.VerificationMethod != nil {
+			if r.VerificationMethod.ID.Equals(id) {
+				return r.VerificationMethod
+			}
+		}
+	}
+	return nil
+}
+
+// Remove removes a VerificationRelationship from the slice.
+// If a VerificationRelationship was removed with the given DID, it will be returned
+func (vmr *VerificationRelationships) Remove(id DID) *VerificationRelationship {
+	var (
+		filteredVMRels []VerificationRelationship
+		removedRel     *VerificationRelationship
+	)
+	for _, r := range *vmr {
+		if !r.ID.Equals(id) {
+			filteredVMRels = append(filteredVMRels, r)
+		} else {
+			removedRel = &r
+		}
+	}
+	*vmr = filteredVMRels
+	return removedRel
+}
+
+// Add adds a verificationMethod to a relationship collection.
+// When the collection already contains the method it will not be added again.
+func (vmr *VerificationRelationships) Add(vm *VerificationMethod) {
+	for _, rel := range *vmr {
+		if rel.ID.Equals(vm.ID) {
+			return
+		}
+	}
+	*vmr = append(*vmr, VerificationRelationship{vm, vm.ID})
+}
+
+// AddAssertionMethod adds a VerificationMethod as AssertionMethod
+// If the controller is not set, it will be set to the documents ID
+func (d *Document) AddAssertionMethod(v *VerificationMethod) {
 	if v.Controller.Empty() {
 		v.Controller = d.ID
 	}
-	d.VerificationMethod = append(d.VerificationMethod, v)
+	d.VerificationMethod.Add(v)
+	d.AssertionMethod.Add(v)
+}
+
+// AddAuthenticationMethod adds a VerificationMethod as AuthenticationMethod
+// If the controller is not set, it will be set to the document's ID
+func (d *Document) AddAuthenticationMethod(v *VerificationMethod) {
+	if v.Controller.Empty() {
+		v.Controller = d.ID
+	}
+	d.VerificationMethod.Add(v)
+	d.Authentication.Add(v)
 }
 
 func (d Document) MarshalJSON() ([]byte, error) {
