@@ -11,7 +11,7 @@ import (
 // VerifiableCredential represents a credential as defined by the Verifiable Credentials Data Model 1.0 specification (https://www.w3.org/TR/vc-data-model/).
 type VerifiableCredential struct {
 	// Context defines the json-ld context to dereference the URIs
-	Context []URI `json:"context"`
+	Context []URI `json:"@context"`
 	// ID is an unique identifier for the credential. It is optional
 	ID *URI `json:"id,omitempty"`
 	// Type holds multiplte types for a credential. A credential must always have the 'VerifiableCredential' type.
