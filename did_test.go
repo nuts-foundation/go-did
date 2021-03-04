@@ -75,3 +75,15 @@ func TestDID_Empty(t *testing.T) {
 		assert.True(t, id.Empty())
 	})
 }
+
+func TestDID_URI(t *testing.T) {
+	id, err := ParseDID("did:nuts:123")
+
+	if ! assert.NoError(t, err) {
+		return
+	}
+
+	uri := id.URI()
+
+	assert.Equal(t, id.String(), uri.String())
+}
