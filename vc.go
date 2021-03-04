@@ -21,9 +21,9 @@ type VerifiableCredential struct {
 	// IssuanceDate is a rfc3339 formatted datetime.
 	IssuanceDate time.Time `json:"issuanceDate"`
 	// ExpirationDate is a rfc3339 formatted datetime. It is optional
-	ExpirationDate *time.Time `json:"expirationDate"`
+	ExpirationDate *time.Time `json:"expirationDate,omitempty"`
 	// CredentialStatus holds information on how the credential can be revoked. It is optional
-	CredentialStatus *CredentialStatus `json:"credentialStatus"`
+	CredentialStatus *CredentialStatus `json:"credentialStatus,omitempty"`
 	// CredentialSubject holds the actual data for the credential. It must be extracted using the UnmarshalCredentialSubject method and a custom type.
 	CredentialSubject []interface{} `json:"credentialSubject"`
 	// Proof contains the cryptographic proof(s). It must be extracted using the Proofs method or UnmarshalProofValue method for non-generic proof fields.
