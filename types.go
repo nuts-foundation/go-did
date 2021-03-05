@@ -27,3 +27,13 @@ func (v *URI) UnmarshalJSON(bytes []byte) error {
 	v.URL = *parsedUrl
 	return nil
 }
+
+// ParseURI parses a raw URI. If it can't be parsed, an error is returned.
+func ParseURI(input string) (*URI, error) {
+	u, err := url.Parse(input)
+	if err != nil {
+		return nil, err
+	}
+
+	return &URI{URL: *u}, nil
+}

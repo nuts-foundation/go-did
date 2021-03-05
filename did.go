@@ -3,6 +3,7 @@ package did
 import (
 	"encoding/json"
 	"fmt"
+	"net/url"
 
 	ockamDid "github.com/ockam-network/did"
 )
@@ -48,6 +49,18 @@ func (d *DID) UnmarshalJSON(bytes []byte) error {
 func (d DID) MarshalJSON() ([]byte, error) {
 	didAsString := d.DID.String()
 	return json.Marshal(didAsString)
+}
+
+// URI converts the DID to an URI.
+// URIs are used in Verifiable Credentials
+func (d DID) URI() URI {
+	return URI{
+		url.URL{
+			Scheme:   "did",
+			Opaque:   fmt.Sprintf("%s:%s", d.Method, d.ID),
+			Fragment: d.Fragment,
+		},
+	}
 }
 
 // ParseDID parses a raw DID. If it can't be parsed, an error is returned.
