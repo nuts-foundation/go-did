@@ -11,7 +11,7 @@ import (
 // VerifiableCredential represents a credential as defined by the Verifiable Credentials Data Model 1.0 specification (https://www.w3.org/TR/vc-data-model/).
 type VerifiableCredential struct {
 	// Context defines the json-ld context to dereference the URIs
-	Context []URI `json:"context"`
+	Context []URI `json:"@context"`
 	// ID is an unique identifier for the credential. It is optional
 	ID *URI `json:"id,omitempty"`
 	// Type holds multiplte types for a credential. A credential must always have the 'VerifiableCredential' type.
@@ -94,4 +94,26 @@ func (vc VerifiableCredential) UnmarshalCredentialSubject(target interface{}) er
 	} else {
 		return json.Unmarshal(asJSON, target)
 	}
+}
+
+// ContainsType returns true when a credential contains the requested type
+func (vc VerifiableCredential) ContainsType(vcType URI) bool {
+	for _, t := range vc.Type {
+		if t.String() == vcType.String() {
+			return true
+		}
+	}
+
+	return false
+}
+
+// ContainsContext returns true when a credential contains the requested context
+func (vc VerifiableCredential) ContainsContext(context URI) bool {
+	for _, c := range vc.Context {
+		if c.String() == context.String() {
+			return true
+		}
+	}
+
+	return false
 }

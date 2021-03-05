@@ -22,3 +22,9 @@ type Proof struct {
 	// Domain specifies the restricted domain of the proof
 	Domain *string `json:"domain,omitempty"`
 }
+
+// JSONWebSignature2020Proof is a VC proof with a signature according to JsonWebSignature2020
+type JSONWebSignature2020Proof struct {
+	Proof
+	Jws string `json:"jws"`
+}

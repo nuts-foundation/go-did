@@ -80,3 +80,37 @@ func TestVerifiableCredential_Proofs(t *testing.T) {
 		assert.Equal(t, JsonWebSignature2020, proofs[0].Type)
 	})
 }
+
+func TestVerifiableCredential_ContainsType(t *testing.T) {
+	input := VerifiableCredential{}
+	json.Unmarshal([]byte(`{
+		  "id":"did:example:123#vc-1",
+		  "type":["VerifiableCredential"]
+		}`), &input)
+
+	t.Run("true", func(t *testing.T) {
+		assert.True(t, input.ContainsType(VerifiableCredentialTypeV1URI()))
+	})
+
+	t.Run("false", func(t *testing.T) {
+		u, _ := ParseURI("type")
+		assert.False(t, input.ContainsType(*u))
+	})
+}
+
+func TestVerifiableCredential_ContainsContext(t *testing.T) {
+	input := VerifiableCredential{}
+	json.Unmarshal([]byte(`{
+		  "id":"did:example:123#vc-1",
+		  "@context":["https://www.w3.org/2018/credentials/v1"]
+		}`), &input)
+
+	t.Run("true", func(t *testing.T) {
+		assert.True(t, input.ContainsContext(VCContextV1URI()))
+	})
+
+	t.Run("false", func(t *testing.T) {
+		u, _ := ParseURI("context")
+		assert.False(t, input.ContainsContext(*u))
+	})
+}
