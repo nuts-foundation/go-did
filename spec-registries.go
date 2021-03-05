@@ -30,3 +30,8 @@ const ECDSASECP256K1VerificationKey2019 = KeyType("EcdsaSecp256k1VerificationKey
 // https://w3c-ccg.github.io/lds-rsa2018/
 const RSAVerificationKey2018 = KeyType("RsaVerificationKey2018")
 
+type ProofType string
+
+// JsonWebSignature2020 is a Proof type.
+// https://w3c-ccg.github.io/lds-jws2020
+const JsonWebSignature2020 = ProofType("JsonWebSignature2020")

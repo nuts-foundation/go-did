@@ -10,7 +10,7 @@ import (
 type Proof struct {
 	// Type defines the specific proof type used.
 	// For example, an Ed25519Signature2018 type indicates that the proof includes a digital signature produced by an ed25519 cryptographic key.
-	Type string `json:"type"`
+	Type ProofType `json:"type"`
 	// ProofPurpose defines the intent for the proof, the reason why an entity created it.
 	// Acts as a safeguard to prevent the proof from being misused for a purpose other than the one it was intended for.
 	// For example, a proof can be used for purposes of authentication, for asserting control of a Verifiable Credential (assertionMethod), and several others.

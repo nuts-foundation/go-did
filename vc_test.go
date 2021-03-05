@@ -70,13 +70,13 @@ func TestVerifiableCredential_Proofs(t *testing.T) {
 		json.Unmarshal([]byte(`{
 		  "id":"did:example:123#vc-1",
 		  "type":["VerifiableCredential", "custom"],
-		  "proof": [{"type": "Ed25519Signature2018"}, {"type": "other"}]
+		  "proof": [{"type": "JsonWebSignature2020"}, {"type": "other"}]
 		}`), &input)
 
 		proofs, err := input.Proofs()
 
 		assert.NoError(t, err)
 		assert.Len(t, proofs, 2)
-		assert.Equal(t, "Ed25519Signature2018", proofs[0].Type)
+		assert.Equal(t, JsonWebSignature2020, proofs[0].Type)
 	})
 }
