@@ -37,3 +37,7 @@ func ParseURI(input string) (*URI, error) {
 
 	return &URI{URL: *u}, nil
 }
+
+func (v URI) String() string {
+	return v.URL.String()
+}

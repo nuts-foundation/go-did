@@ -1,9 +1,9 @@
 package did
 
 import (
-	"testing"
-
 	"github.com/stretchr/testify/assert"
+	"net/url"
+	"testing"
 )
 
 func TestParseURI(t *testing.T) {
@@ -35,3 +35,6 @@ func TestParseURI(t *testing.T) {
 	})
 }
 
+func TestURI_String(t *testing.T) {
+	assert.Equal(t, "http://test", URI{url.URL{Scheme: "http", Host: "test"}}.String())
+}
