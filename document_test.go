@@ -439,3 +439,74 @@ func TestVerificationRelationships(t *testing.T) {
 		})
 	})
 }
+
+
+func TestDocument_ResolveEndpointURL(t *testing.T) {
+	jsonDoc := `
+{
+	"@context": ["https://www.w3.org/ns/did/v1"],
+	"id": "did:web:identity.foundation",
+	"controller": ["did:web:example.org"],
+	"service": [
+		{
+		  "id":"did:example:123#linked-domain",
+		  "type":"custom",
+		  "serviceEndpoint": "https://example.com"
+		}
+	]
+}`
+	doc := Document{}
+	json.Unmarshal([]byte(jsonDoc), &doc)
+
+	t.Run("ok", func(t *testing.T) {
+		endpointID, endpointURL, err := doc.ResolveEndpointURL("custom")
+
+		if !assert.NoError(t, err) {
+			return
+		}
+		assert.Equal(t, "https://example.com", endpointURL)
+		assert.Equal(t, "did:example:123#linked-domain", endpointID.String())
+	})
+
+	t.Run("no services match", func(t *testing.T) {
+		doc := Document{}
+		json.Unmarshal([]byte(jsonDoc), &doc)
+		doc.Service = []Service{}
+
+		_, _, err := doc.ResolveEndpointURL("custom")
+		assert.EqualError(t, err, "service not found (did=did:web:identity.foundation, type=custom)")
+	})
+
+	t.Run("multiple services match", func(t *testing.T) {
+		jsonService :=
+`{
+	"id":"did:example:123#linked-domain",
+	"type":"custom",
+	"serviceEndpoint": "https://example.com"
+}`
+		s := Service{}
+		_ = json.Unmarshal([]byte(jsonService), &s)
+		doc := Document{}
+		json.Unmarshal([]byte(jsonDoc), &doc)
+		doc.Service = append(doc.Service, s)
+
+		_, _, err := doc.ResolveEndpointURL("custom")
+		assert.EqualError(t, err, "multiple services found (did=did:web:identity.foundation, type=custom)")
+	})
+	t.Run("serviceEndpoint is not a single string", func(t *testing.T) {
+		jsonService :=
+			`{
+	"id":"did:example:123#linked-domain",
+	"type":"custom",
+	"serviceEndpoint": {"sub": "https://example.com"}
+}`
+		s := Service{}
+		_ = json.Unmarshal([]byte(jsonService), &s)
+		doc := Document{}
+		json.Unmarshal([]byte(jsonDoc), &doc)
+		doc.Service = []Service{s}
+
+		_, _, err := doc.ResolveEndpointURL("custom")
+		assert.EqualError(t, err, "unable to unmarshal single URL from service (id=did:example:123#linked-domain): json: cannot unmarshal object into Go value of type string")
+	})
+}

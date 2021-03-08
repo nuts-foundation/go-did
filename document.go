@@ -167,6 +167,32 @@ func (d *Document) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
+// ResolveEndpointURL finds the endpoint with the given type and unmarshalls it as single URL.
+// It returns the endpoint ID and URL, or an error if anything went wrong;
+// - holder document can't be resolved,
+// - service with given type doesn't exist,
+// - multiple services match,
+// - serviceEndpoint isn't a string.
+func (d *Document) ResolveEndpointURL(serviceType string) (endpointID URI, endpointURL string, err error) {
+	var services []Service
+	for _, service := range d.Service {
+		if service.Type == serviceType {
+			services = append(services, service)
+		}
+	}
+	if len(services) == 0 {
+		return URI{}, "", fmt.Errorf("service not found (did=%s, type=%s)", d.ID, serviceType)
+	}
+	if len(services) > 1 {
+		return URI{}, "", fmt.Errorf("multiple services found (did=%s, type=%s)", d.ID, serviceType)
+	}
+	err = services[0].UnmarshalServiceEndpoint(&endpointURL)
+	if err != nil {
+		return URI{}, "", fmt.Errorf("unable to unmarshal single URL from service (id=%s): %w", services[0].ID.String(), err)
+	}
+	return services[0].ID, endpointURL, nil
+}
+
 // Service represents a DID Service as specified by the DID Core specification (https://www.w3.org/TR/did-core/#service-endpoints).
 type Service struct {
 	ID              URI         `json:"id"`
