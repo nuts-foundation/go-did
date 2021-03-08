@@ -89,12 +89,12 @@ func TestVerifiableCredential_ContainsType(t *testing.T) {
 		}`), &input)
 
 	t.Run("true", func(t *testing.T) {
-		assert.True(t, input.ContainsType(VerifiableCredentialTypeV1URI()))
+		assert.True(t, input.IsType(VerifiableCredentialTypeV1URI()))
 	})
 
 	t.Run("false", func(t *testing.T) {
 		u, _ := ParseURI("type")
-		assert.False(t, input.ContainsType(*u))
+		assert.False(t, input.IsType(*u))
 	})
 }
 

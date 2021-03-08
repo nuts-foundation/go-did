@@ -96,8 +96,8 @@ func (vc VerifiableCredential) UnmarshalCredentialSubject(target interface{}) er
 	}
 }
 
-// ContainsType returns true when a credential contains the requested type
-func (vc VerifiableCredential) ContainsType(vcType URI) bool {
+// IsType returns true when a credential contains the requested type
+func (vc VerifiableCredential) IsType(vcType URI) bool {
 	for _, t := range vc.Type {
 		if t.String() == vcType.String() {
 			return true
