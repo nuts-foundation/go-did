@@ -95,3 +95,25 @@ func (vc VerifiableCredential) UnmarshalCredentialSubject(target interface{}) er
 		return json.Unmarshal(asJSON, target)
 	}
 }
+
+// IsType returns true when a credential contains the requested type
+func (vc VerifiableCredential) IsType(vcType URI) bool {
+	for _, t := range vc.Type {
+		if t.String() == vcType.String() {
+			return true
+		}
+	}
+
+	return false
+}
+
+// ContainsContext returns true when a credential contains the requested context
+func (vc VerifiableCredential) ContainsContext(context URI) bool {
+	for _, c := range vc.Context {
+		if c.String() == context.String() {
+			return true
+		}
+	}
+
+	return false
+}
