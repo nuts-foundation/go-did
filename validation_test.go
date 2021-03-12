@@ -2,6 +2,7 @@ package did
 
 import (
 	"errors"
+	"github.com/stretchr/testify/assert"
 	"testing"
 )
 
@@ -12,6 +13,9 @@ func assertIsError(t *testing.T, expected error, actual error) {
 }
 
 func TestValidateDocument(t *testing.T) {
+	t.Run("ok", func(t *testing.T) {
+		assert.NoError(t, ValidateDocument(document()))
+	})
 	t.Run("context is missing DIDv1", func(t *testing.T) {
 		input := document()
 		input.Context = []URI{}
