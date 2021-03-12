@@ -11,16 +11,16 @@ func assertIsError(t *testing.T, expected error, actual error) {
 	}
 }
 
-func TestValidateDID(t *testing.T) {
+func TestValidateDocument(t *testing.T) {
 	t.Run("context is missing DIDv1", func(t *testing.T) {
 		input := document()
 		input.Context = []URI{}
-		assertIsError(t, ErrInvalidContext, ValidateDID(input))
+		assertIsError(t, ErrInvalidContext, ValidateDocument(input))
 	})
 	t.Run("document is missing ID", func(t *testing.T) {
 		input := document()
 		input.ID = DID{}
-		assertIsError(t, ErrInvalidID, ValidateDID(input))
+		assertIsError(t, ErrInvalidID, ValidateDocument(input))
 	})
 
 }

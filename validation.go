@@ -9,7 +9,7 @@ var ErrDIDDocumentInvalid = errors.New("DID Document validation failed")
 var ErrInvalidContext = errors.New("invalid context")
 var ErrInvalidID = errors.New("invalid ID")
 
-func ValidateDID(document Document) error {
+func ValidateDocument(document Document) error {
 	validationError := func(validationErr error) error {
 		return fmt.Errorf("%s: %w", ErrDIDDocumentInvalid.Error(), validationErr)
 	}
