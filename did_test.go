@@ -42,16 +42,23 @@ func TestDID_MarshalJSON(t *testing.T) {
 }
 
 func TestParseDID(t *testing.T) {
-	id, err := ParseDID("did:nuts:123")
+	t.Run("valid DID", func(t *testing.T) {
+		id, err := ParseDID("did:nuts:123")
 
-	if err != nil {
-		t.Errorf("unexpected error: %s", err)
-		return
-	}
+		if err != nil {
+			t.Errorf("unexpected error: %s", err)
+			return
+		}
 
-	if id.String() != "did:nuts:123" {
-		t.Errorf("expected parsed did to be 'did:nuts:123', got: %s", id.String())
-	}
+		if id.String() != "did:nuts:123" {
+			t.Errorf("expected parsed did to be 'did:nuts:123', got: %s", id.String())
+		}
+	})
+	t.Run("invalid DID", func(t *testing.T) {
+		id, err := ParseDID("2131232")
+		assert.Nil(t, id)
+		assert.EqualError(t, err, "input does not begin with 'did:' prefix")
+	})
 }
 
 func TestDID_String(t *testing.T) {
