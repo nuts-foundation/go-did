@@ -40,11 +40,11 @@ type W3CSpecValidator struct {
 func (w W3CSpecValidator) Validate(document Document) error {
 	// Verify @context
 	if !containsContext(document, DIDContextV1) {
-		return WrapValidationError(ErrInvalidContext)
+		return validationError(ErrInvalidContext)
 	}
 	// Verify ID
 	if document.ID.Empty() {
-		return WrapValidationError(ErrInvalidID)
+		return validationError(ErrInvalidID)
 	}
 	return nil
 }
@@ -58,6 +58,6 @@ func containsContext(document Document, ctx string) bool {
 	return false
 }
 
-func WrapValidationError(validationErr error) error {
+func validationError(validationErr error) error {
 	return fmt.Errorf("%s: %w", ErrDIDDocumentInvalid.Error(), validationErr)
 }
