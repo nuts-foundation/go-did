@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/nuts-foundation/go-did"
 
 	"github.com/lestrrat-go/jwx/jwk"
 	"github.com/shengdoushi/base58"
@@ -16,7 +17,7 @@ import (
 
 // Document represents a DID Document as specified by the DID Core specification (https://www.w3.org/TR/did-core/).
 type Document struct {
-	Context            []URI                     `json:"@context"`
+	Context            []ssi.URI                 `json:"@context"`
 	ID                 DID                       `json:"id"`
 	Controller         []DID                     `json:"controller,omitempty"`
 	VerificationMethod VerificationMethods       `json:"verificationMethod,omitempty"`
@@ -173,7 +174,7 @@ func (d *Document) UnmarshalJSON(b []byte) error {
 // - service with given type doesn't exist,
 // - multiple services match,
 // - serviceEndpoint isn't a string.
-func (d *Document) ResolveEndpointURL(serviceType string) (endpointID URI, endpointURL string, err error) {
+func (d *Document) ResolveEndpointURL(serviceType string) (endpointID ssi.URI, endpointURL string, err error) {
 	var services []Service
 	for _, service := range d.Service {
 		if service.Type == serviceType {
@@ -181,21 +182,21 @@ func (d *Document) ResolveEndpointURL(serviceType string) (endpointID URI, endpo
 		}
 	}
 	if len(services) == 0 {
-		return URI{}, "", fmt.Errorf("service not found (did=%s, type=%s)", d.ID, serviceType)
+		return ssi.URI{}, "", fmt.Errorf("service not found (did=%s, type=%s)", d.ID, serviceType)
 	}
 	if len(services) > 1 {
-		return URI{}, "", fmt.Errorf("multiple services found (did=%s, type=%s)", d.ID, serviceType)
+		return ssi.URI{}, "", fmt.Errorf("multiple services found (did=%s, type=%s)", d.ID, serviceType)
 	}
 	err = services[0].UnmarshalServiceEndpoint(&endpointURL)
 	if err != nil {
-		return URI{}, "", fmt.Errorf("unable to unmarshal single URL from service (id=%s): %w", services[0].ID.String(), err)
+		return ssi.URI{}, "", fmt.Errorf("unable to unmarshal single URL from service (id=%s): %w", services[0].ID.String(), err)
 	}
 	return services[0].ID, endpointURL, nil
 }
 
 // Service represents a DID Service as specified by the DID Core specification (https://www.w3.org/TR/did-core/#service-endpoints).
 type Service struct {
-	ID              URI         `json:"id"`
+	ID              ssi.URI     `json:"id"`
 	Type            string      `json:"type,omitempty"`
 	ServiceEndpoint interface{} `json:"serviceEndpoint,omitempty"`
 }
@@ -242,7 +243,7 @@ func (s Service) UnmarshalServiceEndpoint(target interface{}) error {
 // VerificationMethod represents a DID Verification Method as specified by the DID Core specification (https://www.w3.org/TR/did-core/#verification-methods).
 type VerificationMethod struct {
 	ID              DID                    `json:"id"`
-	Type            KeyType                `json:"type,omitempty"`
+	Type            ssi.KeyType            `json:"type,omitempty"`
 	Controller      DID                    `json:"controller,omitempty"`
 	PublicKeyJwk    map[string]interface{} `json:"publicKeyJwk,omitempty"`
 	PublicKeyBase58 string                 `json:"publicKeyBase58,omitempty"`
@@ -250,14 +251,14 @@ type VerificationMethod struct {
 
 // NewVerificationMethod is a convenience method to easily create verificationMethods based on a set of given params.
 // It automatically encodes the provided public key based on the keyType.
-func NewVerificationMethod(id DID, keyType KeyType, controller DID, key crypto.PublicKey) (*VerificationMethod, error) {
+func NewVerificationMethod(id DID, keyType ssi.KeyType, controller DID, key crypto.PublicKey) (*VerificationMethod, error) {
 	vm := &VerificationMethod{
 		ID:         id,
 		Type:       keyType,
 		Controller: controller,
 	}
 
-	if keyType == JsonWebKey2020 {
+	if keyType == ssi.JsonWebKey2020 {
 		keyAsJWK, err := jwk.New(key)
 		if err != nil {
 			return nil, err
@@ -268,7 +269,7 @@ func NewVerificationMethod(id DID, keyType KeyType, controller DID, key crypto.P
 		}
 		vm.PublicKeyJwk = jwkAsMap
 	}
-	if keyType == ED25519VerificationKey2018 {
+	if keyType == ssi.ED25519VerificationKey2018 {
 		ed25519Key, ok := key.(ed25519.PublicKey)
 		if !ok {
 			return nil, errors.New("wrong key type")
@@ -296,13 +297,13 @@ func (v VerificationMethod) JWK() (jwk.Key, error) {
 func (v VerificationMethod) PublicKey() (crypto.PublicKey, error) {
 	var pubKey crypto.PublicKey
 	switch v.Type {
-	case ED25519VerificationKey2018:
+	case ssi.ED25519VerificationKey2018:
 		keyBytes, err := base58.Decode(v.PublicKeyBase58, base58.BitcoinAlphabet)
 		if err != nil {
 			return nil, err
 		}
 		return ed25519.PublicKey(keyBytes), err
-	case JsonWebKey2020:
+	case ssi.JsonWebKey2020:
 		keyAsJWK, err := v.JWK()
 		if err != nil {
 			return nil, err

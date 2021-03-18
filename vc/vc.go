@@ -1,23 +1,48 @@
-package did
+package vc
 
 import (
 	"encoding/json"
+	ssi "github.com/nuts-foundation/go-did"
 	"net/url"
 	"time"
 
 	"github.com/nuts-foundation/go-did/internal/marshal"
 )
 
+// VerifiableCredentialType is the default credential type required for every credential
+const VerifiableCredentialType = "VerifiableCredential"
+
+// VerifiableCredentialTypeV1URI returns VerifiableCredential as URI
+func VerifiableCredentialTypeV1URI() ssi.URI {
+	if pURI, err := ssi.ParseURI(VerifiableCredentialType); err != nil {
+		panic(err)
+	} else {
+		return *pURI
+	}
+}
+
+// DefaultContext is the context required for every credential
+const VCContextV1 = "https://www.w3.org/2018/credentials/v1"
+
+// VCContextV1URI returns 'https://www.w3.org/2018/credentials/v1' as URI
+func VCContextV1URI() ssi.URI {
+	if pURI, err := ssi.ParseURI(VCContextV1); err != nil {
+		panic(err)
+	} else {
+		return *pURI
+	}
+}
+
 // VerifiableCredential represents a credential as defined by the Verifiable Credentials Data Model 1.0 specification (https://www.w3.org/TR/vc-data-model/).
 type VerifiableCredential struct {
 	// Context defines the json-ld context to dereference the URIs
-	Context []URI `json:"@context"`
+	Context []ssi.URI `json:"@context"`
 	// ID is an unique identifier for the credential. It is optional
-	ID *URI `json:"id,omitempty"`
+	ID *ssi.URI `json:"id,omitempty"`
 	// Type holds multiplte types for a credential. A credential must always have the 'VerifiableCredential' type.
-	Type []URI `json:"type"`
+	Type []ssi.URI `json:"type"`
 	// Issuer refers to the party that issued the credential
-	Issuer URI `json:"issuer"`
+	Issuer ssi.URI `json:"issuer"`
 	// IssuanceDate is a rfc3339 formatted datetime.
 	IssuanceDate time.Time `json:"issuanceDate"`
 	// ExpirationDate is a rfc3339 formatted datetime. It is optional
@@ -97,7 +122,7 @@ func (vc VerifiableCredential) UnmarshalCredentialSubject(target interface{}) er
 }
 
 // IsType returns true when a credential contains the requested type
-func (vc VerifiableCredential) IsType(vcType URI) bool {
+func (vc VerifiableCredential) IsType(vcType ssi.URI) bool {
 	for _, t := range vc.Type {
 		if t.String() == vcType.String() {
 			return true
@@ -108,7 +133,7 @@ func (vc VerifiableCredential) IsType(vcType URI) bool {
 }
 
 // ContainsContext returns true when a credential contains the requested context
-func (vc VerifiableCredential) ContainsContext(context URI) bool {
+func (vc VerifiableCredential) ContainsContext(context ssi.URI) bool {
 	for _, c := range vc.Context {
 		if c.String() == context.String() {
 			return true
