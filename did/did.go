@@ -3,10 +3,21 @@ package did
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/nuts-foundation/go-did"
 	"net/url"
 
 	ockamDid "github.com/ockam-network/did"
 )
+
+const DIDContextV1 = "https://www.w3.org/ns/did/v1"
+
+func DIDContextV1URI() ssi.URI {
+	if underlyingURL, err := ssi.ParseURI(DIDContextV1); err != nil {
+		panic(err)
+	} else {
+		return *underlyingURL
+	}
+}
 
 // DID represents a Decentralized Identifier as specified by the DID Core specification (https://www.w3.org/TR/did-core/#identifier).
 type DID struct {
@@ -53,9 +64,9 @@ func (d DID) MarshalJSON() ([]byte, error) {
 
 // URI converts the DID to an URI.
 // URIs are used in Verifiable Credentials
-func (d DID) URI() URI {
-	return URI{
-		url.URL{
+func (d DID) URI() ssi.URI {
+	return ssi.URI{
+		URL: url.URL{
 			Scheme:   "did",
 			Opaque:   fmt.Sprintf("%s:%s", d.Method, d.ID),
 			Fragment: d.Fragment,

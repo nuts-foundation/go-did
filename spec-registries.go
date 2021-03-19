@@ -1,14 +1,4 @@
-package did
-
-const DIDContextV1 = "https://www.w3.org/ns/did/v1"
-
-func DIDContextV1URI() URI {
-	if underlyingURL, err := ParseURI(DIDContextV1); err != nil {
-		panic(err)
-	} else {
-		return *underlyingURL
-	}
-}
+package ssi
 
 type KeyType string
 
@@ -34,27 +24,3 @@ type ProofType string
 // https://w3c-ccg.github.io/lds-jws2020
 const JsonWebSignature2020 = ProofType("JsonWebSignature2020")
 
-
-// VerifiableCredentialType is the default credential type required for every credential
-const VerifiableCredentialType = "VerifiableCredential"
-
-// VerifiableCredentialTypeV1URI returns VerifiableCredential as URI
-func VerifiableCredentialTypeV1URI() URI {
-	if pURI, err := ParseURI(VerifiableCredentialType); err != nil {
-		panic(err)
-	} else {
-		return *pURI
-	}
-}
-
-// DefaultContext is the context required for every credential
-const VCContextV1 = "https://www.w3.org/2018/credentials/v1"
-
-// VCContextV1URI returns 'https://www.w3.org/2018/credentials/v1' as URI
-func VCContextV1URI() URI {
-	if pURI, err := ParseURI(VCContextV1); err != nil {
-		panic(err)
-	} else {
-		return *pURI
-	}
-}

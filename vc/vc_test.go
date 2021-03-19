@@ -1,7 +1,8 @@
-package did
+package vc
 
 import (
 	"encoding/json"
+	ssi "github.com/nuts-foundation/go-did"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -77,7 +78,7 @@ func TestVerifiableCredential_Proofs(t *testing.T) {
 
 		assert.NoError(t, err)
 		assert.Len(t, proofs, 2)
-		assert.Equal(t, JsonWebSignature2020, proofs[0].Type)
+		assert.Equal(t, ssi.JsonWebSignature2020, proofs[0].Type)
 	})
 }
 
@@ -93,7 +94,7 @@ func TestVerifiableCredential_ContainsType(t *testing.T) {
 	})
 
 	t.Run("false", func(t *testing.T) {
-		u, _ := ParseURI("type")
+		u, _ := ssi.ParseURI("type")
 		assert.False(t, input.IsType(*u))
 	})
 }
@@ -110,7 +111,7 @@ func TestVerifiableCredential_ContainsContext(t *testing.T) {
 	})
 
 	t.Run("false", func(t *testing.T) {
-		u, _ := ParseURI("context")
+		u, _ := ssi.ParseURI("context")
 		assert.False(t, input.ContainsContext(*u))
 	})
 }

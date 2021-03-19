@@ -1,4 +1,4 @@
-package did
+package ssi
 
 import (
 	"encoding/json"

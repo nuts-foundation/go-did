@@ -1,4 +1,4 @@
-package did
+package ssi
 
 import (
 	"github.com/stretchr/testify/assert"
