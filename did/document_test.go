@@ -511,3 +511,21 @@ func TestDocument_ResolveEndpointURL(t *testing.T) {
 		assert.EqualError(t, err, "unable to unmarshal single URL from service (id=did:example:123#linked-domain): json: cannot unmarshal object into Go value of type string")
 	})
 }
+
+func TestDocument_IsController(t *testing.T) {
+	id123, _ := ParseDID("did:example:123")
+	id456, _ := ParseDID("did:example:456")
+
+	t.Run("no controllers", func(t *testing.T) {
+		assert.False(t, Document{}.IsController(*id123))
+	})
+	t.Run("empty input", func(t *testing.T) {
+		assert.False(t, Document{}.IsController(DID{}))
+	})
+	t.Run("is a controller", func(t *testing.T) {
+		assert.True(t, Document{Controller: []DID{*id123, *id456}}.IsController(*id123))
+	})
+	t.Run("is not a controller", func(t *testing.T) {
+		assert.False(t, Document{Controller: []DID{*id456}}.IsController(*id123))
+	})
+}

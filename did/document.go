@@ -168,6 +168,19 @@ func (d *Document) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
+// IsController returns whether the given DID is a controller of the DID document.
+func (d Document) IsController(controller DID) bool {
+	if controller.Empty() {
+		return false
+	}
+	for _, curr := range d.Controller {
+		if curr.Equals(controller) {
+			return true
+		}
+	}
+	return false
+}
+
 // ResolveEndpointURL finds the endpoint with the given type and unmarshalls it as single URL.
 // It returns the endpoint ID and URL, or an error if anything went wrong;
 // - holder document can't be resolved,
