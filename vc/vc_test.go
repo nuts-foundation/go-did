@@ -86,7 +86,7 @@ func TestVerifiableCredential_ContainsType(t *testing.T) {
 	input := VerifiableCredential{}
 	json.Unmarshal([]byte(`{
 		  "id":"did:example:123#vc-1",
-		  "type":["VerifiableCredential"]
+		  "type":"VerifiableCredential"
 		}`), &input)
 
 	t.Run("true", func(t *testing.T) {
