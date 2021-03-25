@@ -280,7 +280,12 @@ func NewVerificationMethod(id DID, keyType ssi.KeyType, controller DID, key cryp
 		if err != nil {
 			return nil, err
 		}
-		vm.PublicKeyJwk = jwkAsMap
+		// go to JSON and back to fix encoding of key material
+		mapAsJSON, _ := json.Marshal(jwkAsMap)
+		unmarshalledMap := map[string]interface{}{}
+		json.Unmarshal(mapAsJSON, &unmarshalledMap)
+
+		vm.PublicKeyJwk = unmarshalledMap
 	}
 	if keyType == ssi.ED25519VerificationKey2018 {
 		ed25519Key, ok := key.(ed25519.PublicKey)
