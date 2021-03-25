@@ -5,7 +5,7 @@
 [![Maintainability](https://api.codeclimate.com/v1/badges/4b4c812605d5c4f5ba3f/maintainability)](https://codeclimate.com/github/nuts-foundation/go-did/maintainability)
 [![Test Coverage](https://api.codeclimate.com/v1/badges/4b4c812605d5c4f5ba3f/test_coverage)](https://codeclimate.com/github/nuts-foundation/go-did/test_coverage)
 
-A library to parse and generate W3C [DID Documents](https://www.w3.org/TR/did-core/).
+A library to parse and generate W3C [DID Documents](https://www.w3.org/TR/did-core/) and W3C [Verifiable Credentials](https://www.w3.org/TR/vc-data-model/).
 
 ## Example usage:
 Creation of a simple DID Document which is its own controller and contains an AssertionMethod.
