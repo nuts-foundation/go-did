@@ -5,6 +5,7 @@ import (
 )
 
 const contextKey = "@context"
+const typeKey = "type"
 const credentialSubjectKey = "credentialSubject"
 const proofKey = "proof"
 
