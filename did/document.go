@@ -1,12 +1,12 @@
 package did
 
 import (
-	"context"
 	"crypto"
 	"crypto/ed25519"
 	"encoding/json"
 	"errors"
 	"fmt"
+
 	"github.com/nuts-foundation/go-did"
 
 	"github.com/lestrrat-go/jwx/jwk"
@@ -258,8 +258,8 @@ type VerificationMethod struct {
 	ID              DID                    `json:"id"`
 	Type            ssi.KeyType            `json:"type,omitempty"`
 	Controller      DID                    `json:"controller,omitempty"`
-	PublicKeyJwk    map[string]interface{} `json:"publicKeyJwk,omitempty"`
 	PublicKeyBase58 string                 `json:"publicKeyBase58,omitempty"`
+	PublicKeyJwk    map[string]interface{} `json:"publicKeyJwk,omitempty"`
 }
 
 // NewVerificationMethod is a convenience method to easily create verificationMethods based on a set of given params.
@@ -276,11 +276,19 @@ func NewVerificationMethod(id DID, keyType ssi.KeyType, controller DID, key cryp
 		if err != nil {
 			return nil, err
 		}
-		jwkAsMap, err := keyAsJWK.AsMap(context.Background())
+		// Convert to JSON and back to fix encoding of key material to make sure
+		// an unmarshalled and newly created VerificationMethod are equal on object level.
+		// The format of PublicKeyJwk in verificationMethod is a map[string]interface{}.
+		// We can't use the Key.AsMap since the values of the map will all be internal jwk lib structs.
+		// After unmarshalling all the fields will be map[string]string.
+		keyAsJSON, err := json.Marshal(keyAsJWK)
 		if err != nil {
 			return nil, err
 		}
-		vm.PublicKeyJwk = jwkAsMap
+		keyAsMap := map[string]interface{}{}
+		json.Unmarshal(keyAsJSON, &keyAsMap)
+
+		vm.PublicKeyJwk = keyAsMap
 	}
 	if keyType == ssi.ED25519VerificationKey2018 {
 		ed25519Key, ok := key.(ed25519.PublicKey)

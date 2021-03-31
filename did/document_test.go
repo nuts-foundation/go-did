@@ -185,7 +185,6 @@ func Test_Document(t *testing.T) {
 			doc.AddAuthenticationMethod(method)
 			doc.AddAuthenticationMethod(method)
 			assert.Len(t, doc.Authentication, 1)
-			assert.Equal(t, doc.Authentication[0].VerificationMethod, method)
 		})
 		t.Run("it adds the method to the AuthenticationMethods once", func(t *testing.T) {
 			doc := Document{ID: *id123}
@@ -230,6 +229,26 @@ func TestRoundTripMarshalling(t *testing.T) {
 			assert.JSONEq(t, string(test.ReadTestFile("test/"+testCase+"-expected.json")), string(marshaled))
 		})
 	}
+
+	// Test to check if a newly created VerificationMethod is the same as a parsed one.
+	t.Run("verification method marshalling", func(t *testing.T) {
+		id123, _ := ParseDID("did:example:123")
+		id123Method, _ := ParseDID("did:example:123#abc-method1")
+		pair, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+		method, err := NewVerificationMethod(*id123Method, ssi.JsonWebKey2020, *id123, pair.PublicKey)
+		if !assert.NoError(t, err) {
+			return
+		}
+		methodJson, err := json.Marshal(method)
+		if !assert.NoError(t, err) {
+			return
+		}
+
+		unmarshalledMethod := &VerificationMethod{}
+		err = json.Unmarshal(methodJson, unmarshalledMethod)
+		assert.Equal(t, method, unmarshalledMethod,
+			"expected new created method to be equal to a marshalled and unmarshalled one")
+	})
 }
 
 func TestVerificationRelationship_UnmarshalJSON(t *testing.T) {
