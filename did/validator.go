@@ -27,6 +27,15 @@ var ErrInvalidAuthentication = errors.New("invalid authentication")
 // ErrInvalidAssertionMethod indicates the assertion method is invalid (e.g. invalid `id` or `type`)
 var ErrInvalidAssertionMethod = errors.New("invalid assertionMethod")
 
+// ErrInvalidKeyAgreement indicates the keyAgreement is invalid (e.g. invalid `id` or `type`)
+var ErrInvalidKeyAgreement = errors.New("invalid keyAgreement")
+
+// ErrInvalidCapabilityInvocation indicates the capabilityInvocation is invalid (e.g. invalid `id` or `type`)
+var ErrInvalidCapabilityInvocation = errors.New("invalid capabilityInvocation")
+
+// ErrInvalidCapabilityDelegation indicates the capabilityDelegation is invalid (e.g. invalid `id` or `type`)
+var ErrInvalidCapabilityDelegation = errors.New("invalid capabilityDelegation")
+
 // ErrInvalidService indicates the service is invalid (e.g. invalid `id` or `type`)
 var ErrInvalidService = errors.New("invalid service")
 
@@ -69,6 +78,24 @@ func (w W3CSpecValidator) Validate(document Document) error {
 				return document.AssertionMethod
 			},
 			err: ErrInvalidAssertionMethod,
+		},
+		verificationMethodRelationshipValidator{
+			getter: func(document Document) VerificationRelationships {
+				return document.KeyAgreement
+			},
+			err: ErrInvalidKeyAgreement,
+		},
+		verificationMethodRelationshipValidator{
+			getter: func(document Document) VerificationRelationships {
+				return document.CapabilityInvocation
+			},
+			err: ErrInvalidCapabilityInvocation,
+		},
+		verificationMethodRelationshipValidator{
+			getter: func(document Document) VerificationRelationships {
+				return document.CapabilityDelegation
+			},
+			err: ErrInvalidCapabilityDelegation,
 		},
 		serviceValidator{},
 	}}.Validate(document)
