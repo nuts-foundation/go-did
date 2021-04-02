@@ -207,6 +207,131 @@ func Test_Document(t *testing.T) {
 			assert.Equal(t, method.Controller, *id456)
 		})
 	})
+
+	t.Run("AddKeyAgreement", func(t *testing.T) {
+		t.Run("it adds the method to KeyAgreement once", func(t *testing.T) {
+			doc := Document{ID: *id123}
+			method := &VerificationMethod{ID: *id123Method}
+			doc.AddKeyAgreement(method)
+			doc.AddKeyAgreement(method)
+			assert.Len(t, doc.KeyAgreement, 1)
+			assert.Len(t, doc.VerificationMethod, 1)
+		})
+	})
+	t.Run("AddCapabilityInvocation", func(t *testing.T) {
+		t.Run("it adds the method to CapabilityInvocation once", func(t *testing.T) {
+			doc := Document{ID: *id123}
+			method := &VerificationMethod{ID: *id123Method}
+			doc.AddCapabilityInvocation(method)
+			doc.AddCapabilityInvocation(method)
+			assert.Len(t, doc.CapabilityInvocation, 1)
+			assert.Len(t, doc.VerificationMethod, 1)
+		})
+	})
+	t.Run("AddCapabilityDelegation", func(t *testing.T) {
+		t.Run("it adds the method to CapabilityDelegation once", func(t *testing.T) {
+			doc := Document{ID: *id123}
+			method := &VerificationMethod{ID: *id123Method}
+			doc.AddCapabilityDelegation(method)
+			doc.AddCapabilityDelegation(method)
+			assert.Len(t, doc.CapabilityDelegation, 1)
+			assert.Len(t, doc.VerificationMethod, 1)
+		})
+	})
+}
+
+func TestDocument_UnmarshallJSON(t *testing.T) {
+	t.Run("resolving verificationRelationships", func(t *testing.T) {
+		t.Run("authentication", func(t *testing.T) {
+			t.Run("ok", func(t *testing.T) {
+				docJSON := []byte(`{ "ID": "did:example:123", "authentication":["did:example:123#abc"], "verificationMethod":[{"ID":"did:example:123#abc"}]}`)
+				doc := Document{}
+				err := json.Unmarshal(docJSON, &doc)
+				assert.NoError(t, err)
+				assert.Equal(t, "did:example:123", doc.ID.String())
+				assert.Equal(t, "did:example:123#abc", doc.Authentication[0].ID.String())
+				assert.Equal(t, "did:example:123#abc", doc.VerificationMethod[0].ID.String())
+			})
+			t.Run("error - missing verificationMethod", func(t *testing.T) {
+				docJSON := []byte(`{ "ID": "did:example:123", "authentication":["did:example:123#abc"], "verificationMethod":[{"ID":"did:example:123#def"}]}`)
+				doc := Document{}
+				err := json.Unmarshal(docJSON, &doc)
+				assert.EqualError(t, err, "unable to resolve all 'authentication' references: unable to resolve verificationMethod: did:example:123#abc")
+			})
+		})
+
+		t.Run("assertionMethod", func(t *testing.T) {
+			t.Run("ok", func(t *testing.T) {
+				docJSON := []byte(`{ "ID": "did:example:123", "assertionMethod":["did:example:123#abc"], "verificationMethod":[{"ID":"did:example:123#abc"}]}`)
+				doc := Document{}
+				err := json.Unmarshal(docJSON, &doc)
+				assert.NoError(t, err)
+				assert.Equal(t, "did:example:123", doc.ID.String())
+				assert.Equal(t, "did:example:123#abc", doc.AssertionMethod[0].ID.String())
+				assert.Equal(t, "did:example:123#abc", doc.VerificationMethod[0].ID.String())
+			})
+			t.Run("error - missing verificationMethod", func(t *testing.T) {
+				docJSON := []byte(`{ "ID": "did:example:123", "assertionMethod":["did:example:123#abc"], "verificationMethod":[{"ID":"did:example:123#def"}]}`)
+				doc := Document{}
+				err := json.Unmarshal(docJSON, &doc)
+				assert.EqualError(t, err, "unable to resolve all 'assertionMethod' references: unable to resolve verificationMethod: did:example:123#abc")
+			})
+		})
+
+		t.Run("keyAgreement", func(t *testing.T) {
+			t.Run("ok", func(t *testing.T) {
+				docJSON := []byte(`{ "ID": "did:example:123", "keyAgreement":["did:example:123#abc"], "verificationMethod":[{"ID":"did:example:123#abc"}]}`)
+				doc := Document{}
+				err := json.Unmarshal(docJSON, &doc)
+				assert.NoError(t, err)
+				assert.Equal(t, "did:example:123", doc.ID.String())
+				assert.Equal(t, "did:example:123#abc", doc.KeyAgreement[0].ID.String())
+				assert.Equal(t, "did:example:123#abc", doc.VerificationMethod[0].ID.String())
+			})
+			t.Run("error - missing verificationMethod", func(t *testing.T) {
+				docJSON := []byte(`{ "ID": "did:example:123", "keyAgreement":["did:example:123#abc"], "verificationMethod":[{"ID":"did:example:123#def"}]}`)
+				doc := Document{}
+				err := json.Unmarshal(docJSON, &doc)
+				assert.EqualError(t, err, "unable to resolve all 'keyAgreement' references: unable to resolve verificationMethod: did:example:123#abc")
+			})
+		})
+
+		t.Run("capabilityInvocation", func(t *testing.T) {
+			t.Run("ok", func(t *testing.T) {
+				docJSON := []byte(`{ "ID": "did:example:123", "capabilityInvocation":["did:example:123#abc"], "verificationMethod":[{"ID":"did:example:123#abc"}]}`)
+				doc := Document{}
+				err := json.Unmarshal(docJSON, &doc)
+				assert.NoError(t, err)
+				assert.Equal(t, "did:example:123", doc.ID.String())
+				assert.Equal(t, "did:example:123#abc", doc.CapabilityInvocation[0].ID.String())
+				assert.Equal(t, "did:example:123#abc", doc.VerificationMethod[0].ID.String())
+			})
+			t.Run("error - missing verificationMethod", func(t *testing.T) {
+				docJSON := []byte(`{ "ID": "did:example:123", "capabilityInvocation":["did:example:123#abc"], "verificationMethod":[{"ID":"did:example:123#def"}]}`)
+				doc := Document{}
+				err := json.Unmarshal(docJSON, &doc)
+				assert.EqualError(t, err, "unable to resolve all 'capabilityInvocation' references: unable to resolve verificationMethod: did:example:123#abc")
+			})
+		})
+
+		t.Run("capabilityDelegation", func(t *testing.T) {
+			t.Run("ok", func(t *testing.T) {
+				docJSON := []byte(`{ "ID": "did:example:123", "capabilityDelegation":["did:example:123#abc"], "verificationMethod":[{"ID":"did:example:123#abc"}]}`)
+				doc := Document{}
+				err := json.Unmarshal(docJSON, &doc)
+				assert.NoError(t, err)
+				assert.Equal(t, "did:example:123", doc.ID.String())
+				assert.Equal(t, "did:example:123#abc", doc.CapabilityDelegation[0].ID.String())
+				assert.Equal(t, "did:example:123#abc", doc.VerificationMethod[0].ID.String())
+			})
+			t.Run("error - missing verificationMethod", func(t *testing.T) {
+				docJSON := []byte(`{ "ID": "did:example:123", "capabilityDelegation":["did:example:123#abc"], "verificationMethod":[{"ID":"did:example:123#def"}]}`)
+				doc := Document{}
+				err := json.Unmarshal(docJSON, &doc)
+				assert.EqualError(t, err, "unable to resolve all 'capabilityDelegation' references: unable to resolve verificationMethod: did:example:123#abc")
+			})
+		})
+	})
 }
 
 func TestRoundTripMarshalling(t *testing.T) {
