@@ -16,7 +16,7 @@ import (
 
 func Test_Document(t *testing.T) {
 	id123, _ := ParseDID("did:example:123")
-	id123Method, _ := ParseDID("did:example:123#method")
+	id123Method, _ := ParseDIDURL("did:example:123#method")
 	id456, _ := ParseDID("did:example:456")
 
 
@@ -358,7 +358,7 @@ func TestRoundTripMarshalling(t *testing.T) {
 	// Test to check if a newly created VerificationMethod is the same as a parsed one.
 	t.Run("verification method marshalling", func(t *testing.T) {
 		id123, _ := ParseDID("did:example:123")
-		id123Method, _ := ParseDID("did:example:123#abc-method1")
+		id123Method, _ := ParseDIDURL("did:example:123#abc-method1")
 		pair, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 		method, err := NewVerificationMethod(*id123Method, ssi.JsonWebKey2020, *id123, pair.PublicKey)
 		if !assert.NoError(t, err) {
