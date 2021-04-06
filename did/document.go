@@ -17,13 +17,16 @@ import (
 
 // Document represents a DID Document as specified by the DID Core specification (https://www.w3.org/TR/did-core/).
 type Document struct {
-	Context            []ssi.URI                 `json:"@context"`
-	ID                 DID                       `json:"id"`
-	Controller         []DID                     `json:"controller,omitempty"`
-	VerificationMethod VerificationMethods       `json:"verificationMethod,omitempty"`
-	Authentication     VerificationRelationships `json:"authentication,omitempty"`
-	AssertionMethod    VerificationRelationships `json:"assertionMethod,omitempty"`
-	Service            []Service                 `json:"service,omitempty"`
+	Context              []ssi.URI                 `json:"@context"`
+	ID                   DID                       `json:"id"`
+	Controller           []DID                     `json:"controller,omitempty"`
+	VerificationMethod   VerificationMethods       `json:"verificationMethod,omitempty"`
+	Authentication       VerificationRelationships `json:"authentication,omitempty"`
+	AssertionMethod      VerificationRelationships `json:"assertionMethod,omitempty"`
+	KeyAgreement         VerificationRelationships `json:"keyAgreement,omitempty"`
+	CapabilityInvocation VerificationRelationships `json:"capabilityInvocation,omitempty"`
+	CapabilityDelegation VerificationRelationships `json:"capabilityDelegation,omitempty"`
+	Service              []Service                 `json:"service,omitempty"`
 }
 
 type VerificationMethods []*VerificationMethod
@@ -116,6 +119,16 @@ func (vmr *VerificationRelationships) Add(vm *VerificationMethod) {
 	*vmr = append(*vmr, VerificationRelationship{vm, vm.ID})
 }
 
+// AddAuthenticationMethod adds a VerificationMethod as AuthenticationMethod
+// If the controller is not set, it will be set to the document's ID
+func (d *Document) AddAuthenticationMethod(v *VerificationMethod) {
+	if v.Controller.Empty() {
+		v.Controller = d.ID
+	}
+	d.VerificationMethod.Add(v)
+	d.Authentication.Add(v)
+}
+
 // AddAssertionMethod adds a VerificationMethod as AssertionMethod
 // If the controller is not set, it will be set to the documents ID
 func (d *Document) AddAssertionMethod(v *VerificationMethod) {
@@ -126,14 +139,34 @@ func (d *Document) AddAssertionMethod(v *VerificationMethod) {
 	d.AssertionMethod.Add(v)
 }
 
-// AddAuthenticationMethod adds a VerificationMethod as AuthenticationMethod
+// AddKeyAgreement adds a VerificationMethod as KeyAgreement
 // If the controller is not set, it will be set to the document's ID
-func (d *Document) AddAuthenticationMethod(v *VerificationMethod) {
+func (d *Document) AddKeyAgreement(v *VerificationMethod) {
 	if v.Controller.Empty() {
 		v.Controller = d.ID
 	}
 	d.VerificationMethod.Add(v)
-	d.Authentication.Add(v)
+	d.KeyAgreement.Add(v)
+}
+
+// AddCapabilityInvocation adds a VerificationMethod as CapabilityInvocation
+// If the controller is not set, it will be set to the document's ID
+func (d *Document) AddCapabilityInvocation(v *VerificationMethod) {
+	if v.Controller.Empty() {
+		v.Controller = d.ID
+	}
+	d.VerificationMethod.Add(v)
+	d.CapabilityInvocation.Add(v)
+}
+
+// AddCapabilityDelegation adds a VerificationMethod as CapabilityDelegation
+// If the controller is not set, it will be set to the document's ID
+func (d *Document) AddCapabilityDelegation(v *VerificationMethod) {
+	if v.Controller.Empty() {
+		v.Controller = d.ID
+	}
+	d.VerificationMethod.Add(v)
+	d.CapabilityDelegation.Add(v)
 }
 
 func (d Document) MarshalJSON() ([]byte, error) {
@@ -159,11 +192,21 @@ func (d *Document) UnmarshalJSON(b []byte) error {
 	}
 	*d = (Document)(doc)
 
+	const errMsg = "unable to resolve all '%s' references: %w"
 	if err = resolveVerificationRelationships(d.Authentication, d.VerificationMethod); err != nil {
-		return fmt.Errorf("unable to resolve all '%s' references: %w", authenticationKey, err)
+		return fmt.Errorf(errMsg, authenticationKey, err)
 	}
 	if err = resolveVerificationRelationships(d.AssertionMethod, d.VerificationMethod); err != nil {
-		return fmt.Errorf("unable to resolve all '%s' references: %w", assertionMethodKey, err)
+		return fmt.Errorf(errMsg, assertionMethodKey, err)
+	}
+	if err = resolveVerificationRelationships(d.KeyAgreement, d.VerificationMethod); err != nil {
+		return fmt.Errorf(errMsg, keyAgreementKey, err)
+	}
+	if err = resolveVerificationRelationships(d.CapabilityInvocation, d.VerificationMethod); err != nil {
+		return fmt.Errorf(errMsg, capabilityInvocationKey, err)
+	}
+	if err = resolveVerificationRelationships(d.CapabilityDelegation, d.VerificationMethod); err != nil {
+		return fmt.Errorf(errMsg, capabilityDelegationKey, err)
 	}
 	return nil
 }
