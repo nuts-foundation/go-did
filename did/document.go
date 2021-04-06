@@ -192,20 +192,21 @@ func (d *Document) UnmarshalJSON(b []byte) error {
 	}
 	*d = (Document)(doc)
 
+	const errMsg = "unable to resolve all '%s' references: %w"
 	if err = resolveVerificationRelationships(d.Authentication, d.VerificationMethod); err != nil {
-		return fmt.Errorf("unable to resolve all '%s' references: %w", authenticationKey, err)
+		return fmt.Errorf(errMsg, authenticationKey, err)
 	}
 	if err = resolveVerificationRelationships(d.AssertionMethod, d.VerificationMethod); err != nil {
-		return fmt.Errorf("unable to resolve all '%s' references: %w", assertionMethodKey, err)
+		return fmt.Errorf(errMsg, assertionMethodKey, err)
 	}
 	if err = resolveVerificationRelationships(d.KeyAgreement, d.VerificationMethod); err != nil {
-		return fmt.Errorf("unable to resolve all '%s' references: %w", keyAgreementKey, err)
+		return fmt.Errorf(errMsg, keyAgreementKey, err)
 	}
 	if err = resolveVerificationRelationships(d.CapabilityInvocation, d.VerificationMethod); err != nil {
-		return fmt.Errorf("unable to resolve all '%s' references: %w", capabilityInvocationKey, err)
+		return fmt.Errorf(errMsg, capabilityInvocationKey, err)
 	}
 	if err = resolveVerificationRelationships(d.CapabilityDelegation, d.VerificationMethod); err != nil {
-		return fmt.Errorf("unable to resolve all '%s' references: %w", capabilityDelegationKey, err)
+		return fmt.Errorf(errMsg, capabilityDelegationKey, err)
 	}
 	return nil
 }
