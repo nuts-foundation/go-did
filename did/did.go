@@ -75,6 +75,9 @@ func (d DID) URI() ssi.URI {
 	}
 }
 
+// ParseDIDURL parses a DID URL.
+// https://www.w3.org/TR/did-core/#did-url-syntax
+// A DID URL is a URL that builds on the DID scheme.
 func ParseDIDURL(input string) (*DID, error) {
 	ockDid, err := ockamDid.Parse(input)
 	if err != nil {
@@ -84,7 +87,9 @@ func ParseDIDURL(input string) (*DID, error) {
 	return &DID{DID: *ockDid}, nil
 }
 
-// ParseDID parses a raw DID. If it can't be parsed, an error is returned.
+// ParseDID parses a raw DID.
+// If the input contains a path, query or fragment, use the ParseDIDURL instead.
+// If it can't be parsed, an error is returned.
 func ParseDID(input string) (*DID, error) {
 	did, err := ParseDIDURL(input)
 	if err != nil {
