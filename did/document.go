@@ -122,8 +122,8 @@ func (vmr *VerificationRelationships) Add(vm *VerificationMethod) {
 // AddAuthenticationMethod adds a VerificationMethod as AuthenticationMethod
 // If the controller is not set, it will be set to the document's ID
 func (d *Document) AddAuthenticationMethod(v *VerificationMethod) {
-	if v.Controller.Empty() {
-		v.Controller = d.ID
+	if v.Controller == nil {
+		v.Controller = &d.ID
 	}
 	d.VerificationMethod.Add(v)
 	d.Authentication.Add(v)
@@ -132,8 +132,8 @@ func (d *Document) AddAuthenticationMethod(v *VerificationMethod) {
 // AddAssertionMethod adds a VerificationMethod as AssertionMethod
 // If the controller is not set, it will be set to the documents ID
 func (d *Document) AddAssertionMethod(v *VerificationMethod) {
-	if v.Controller.Empty() {
-		v.Controller = d.ID
+	if v.Controller == nil {
+		v.Controller = &d.ID
 	}
 	d.VerificationMethod.Add(v)
 	d.AssertionMethod.Add(v)
@@ -142,8 +142,8 @@ func (d *Document) AddAssertionMethod(v *VerificationMethod) {
 // AddKeyAgreement adds a VerificationMethod as KeyAgreement
 // If the controller is not set, it will be set to the document's ID
 func (d *Document) AddKeyAgreement(v *VerificationMethod) {
-	if v.Controller.Empty() {
-		v.Controller = d.ID
+	if v.Controller == nil {
+		v.Controller = &d.ID
 	}
 	d.VerificationMethod.Add(v)
 	d.KeyAgreement.Add(v)
@@ -152,8 +152,8 @@ func (d *Document) AddKeyAgreement(v *VerificationMethod) {
 // AddCapabilityInvocation adds a VerificationMethod as CapabilityInvocation
 // If the controller is not set, it will be set to the document's ID
 func (d *Document) AddCapabilityInvocation(v *VerificationMethod) {
-	if v.Controller.Empty() {
-		v.Controller = d.ID
+	if v.Controller == nil {
+		v.Controller = &d.ID
 	}
 	d.VerificationMethod.Add(v)
 	d.CapabilityInvocation.Add(v)
@@ -162,8 +162,8 @@ func (d *Document) AddCapabilityInvocation(v *VerificationMethod) {
 // AddCapabilityDelegation adds a VerificationMethod as CapabilityDelegation
 // If the controller is not set, it will be set to the document's ID
 func (d *Document) AddCapabilityDelegation(v *VerificationMethod) {
-	if v.Controller.Empty() {
-		v.Controller = d.ID
+	if v.Controller == nil {
+		v.Controller = &d.ID
 	}
 	d.VerificationMethod.Add(v)
 	d.CapabilityDelegation.Add(v)
@@ -300,14 +300,14 @@ func (s Service) UnmarshalServiceEndpoint(target interface{}) error {
 type VerificationMethod struct {
 	ID              DID                    `json:"id"`
 	Type            ssi.KeyType            `json:"type,omitempty"`
-	Controller      DID                    `json:"controller,omitempty"`
+	Controller      *DID                   `json:"controller,omitempty"`
 	PublicKeyBase58 string                 `json:"publicKeyBase58,omitempty"`
 	PublicKeyJwk    map[string]interface{} `json:"publicKeyJwk,omitempty"`
 }
 
 // NewVerificationMethod is a convenience method to easily create verificationMethods based on a set of given params.
 // It automatically encodes the provided public key based on the keyType.
-func NewVerificationMethod(id DID, keyType ssi.KeyType, controller DID, key crypto.PublicKey) (*VerificationMethod, error) {
+func NewVerificationMethod(id DID, keyType ssi.KeyType, controller *DID, key crypto.PublicKey) (*VerificationMethod, error) {
 	vm := &VerificationMethod{
 		ID:         id,
 		Type:       keyType,

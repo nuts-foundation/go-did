@@ -5,9 +5,10 @@ import (
 	"crypto/elliptic"
 	"crypto/rand"
 	"errors"
+	"testing"
+
 	ssi "github.com/nuts-foundation/go-did"
 	"github.com/stretchr/testify/assert"
-	"testing"
 )
 
 func TestW3CSpecValidator(t *testing.T) {
@@ -39,7 +40,7 @@ func TestW3CSpecValidator(t *testing.T) {
 		})
 		t.Run("invalid controller", func(t *testing.T) {
 			input := document()
-			input.VerificationMethod[0].Controller = DID{}
+			input.VerificationMethod[0].Controller = &DID{}
 			assertIsError(t, ErrInvalidVerificationMethod, W3CSpecValidator{}.Validate(input))
 		})
 		t.Run("invalid type", func(t *testing.T) {
@@ -64,7 +65,7 @@ func TestW3CSpecValidator(t *testing.T) {
 			vm := *input.VerificationMethod[0]
 			input.Authentication[0] = VerificationRelationship{VerificationMethod: &vm}
 			// Then alter
-			input.Authentication[0].Controller = DID{}
+			input.Authentication[0].Controller = &DID{}
 			assertIsError(t, ErrInvalidAuthentication, W3CSpecValidator{}.Validate(input))
 		})
 	})
@@ -148,7 +149,7 @@ func document() Document {
 	privateKey, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	keyID := *did
 	keyID.Fragment = "key-1"
-	vm, _ := NewVerificationMethod(keyID, ssi.JsonWebKey2020, *did, privateKey.Public())
+	vm, _ := NewVerificationMethod(keyID, ssi.JsonWebKey2020, did, privateKey.Public())
 
 	serviceID := *did
 	serviceID.Fragment = "service-1"

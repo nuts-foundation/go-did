@@ -6,8 +6,9 @@ import (
 	"crypto/elliptic"
 	"crypto/rand"
 	"encoding/json"
-	ssi "github.com/nuts-foundation/go-did"
 	"testing"
+
+	ssi "github.com/nuts-foundation/go-did"
 
 	"github.com/stretchr/testify/assert"
 
@@ -113,7 +114,7 @@ func Test_Document(t *testing.T) {
 		id.Fragment = "added-assertion-method-1"
 
 		keyPair, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
-		vm, err := NewVerificationMethod(id, ssi.JsonWebKey2020, actual.ID, keyPair.PublicKey)
+		vm, err := NewVerificationMethod(id, ssi.JsonWebKey2020, &actual.ID, keyPair.PublicKey)
 		if !assert.NoError(t, err) {
 			return
 		}
@@ -129,7 +130,7 @@ func Test_Document(t *testing.T) {
 		id.Fragment = "added-assertion-method-1"
 
 		pubKey, _, _ := ed25519.GenerateKey(rand.Reader)
-		vm, err := NewVerificationMethod(id, ssi.ED25519VerificationKey2018, actual.ID, pubKey)
+		vm, err := NewVerificationMethod(id, ssi.ED25519VerificationKey2018, &actual.ID, pubKey)
 		if !assert.NoError(t, err) {
 			return
 		}
@@ -168,13 +169,13 @@ func Test_Document(t *testing.T) {
 			doc := Document{ID: *id123}
 			method := &VerificationMethod{ID: *id123Method}
 			doc.AddAssertionMethod(method)
-			assert.Equal(t, method.Controller, *id123)
+			assert.Equal(t, *method.Controller, *id123)
 		})
 		t.Run("it leaves the controller when already set", func(t *testing.T) {
 			doc := Document{ID: *id123}
-			method := &VerificationMethod{ID: *id123Method, Controller: *id456}
+			method := &VerificationMethod{ID: *id123Method, Controller: id456}
 			doc.AddAssertionMethod(method)
-			assert.Equal(t, method.Controller, *id456)
+			assert.Equal(t, *method.Controller, *id456)
 		})
 	})
 
@@ -198,13 +199,13 @@ func Test_Document(t *testing.T) {
 			doc := Document{ID: *id123}
 			method := &VerificationMethod{ID: *id123Method}
 			doc.AddAuthenticationMethod(method)
-			assert.Equal(t, method.Controller, *id123)
+			assert.Equal(t, *method.Controller, *id123)
 		})
 		t.Run("it leaves the controller when already set", func(t *testing.T) {
 			doc := Document{ID: *id123}
-			method := &VerificationMethod{ID: *id123Method, Controller: *id456}
+			method := &VerificationMethod{ID: *id123Method, Controller: id456}
 			doc.AddAuthenticationMethod(method)
-			assert.Equal(t, method.Controller, *id456)
+			assert.Equal(t, *method.Controller, *id456)
 		})
 	})
 
@@ -360,7 +361,7 @@ func TestRoundTripMarshalling(t *testing.T) {
 		id123, _ := ParseDID("did:example:123")
 		id123Method, _ := ParseDID("did:example:123#abc-method1")
 		pair, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
-		method, err := NewVerificationMethod(*id123Method, ssi.JsonWebKey2020, *id123, pair.PublicKey)
+		method, err := NewVerificationMethod(*id123Method, ssi.JsonWebKey2020, id123, pair.PublicKey)
 		if !assert.NoError(t, err) {
 			return
 		}
