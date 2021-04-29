@@ -110,12 +110,12 @@ func (w baseValidator) Validate(document Document) error {
 		return makeValidationError(ErrInvalidContext)
 	}
 	// Verify `id`
-	if document.ID.Empty() {
+	if document.ID.Empty() || document.ID.IsURL() {
 		return makeValidationError(ErrInvalidID)
 	}
 	// Verify `controller`
 	for _, controller := range document.Controller {
-		if controller.Empty() {
+		if controller.Empty() || controller.IsURL() {
 			return makeValidationError(ErrInvalidController)
 		}
 	}

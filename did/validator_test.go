@@ -15,19 +15,35 @@ func TestW3CSpecValidator(t *testing.T) {
 		assert.NoError(t, W3CSpecValidator{}.Validate(document()))
 	})
 	t.Run("base", func(t *testing.T) {
+		didUrl, err := ParseDIDURL("did:example:123#fragment")
+		if !assert.NoError(t, err) {
+			return
+		}
 		t.Run("context is missing DIDv1", func(t *testing.T) {
 			input := document()
 			input.Context = []ssi.URI{}
 			assertIsError(t, ErrInvalidContext, W3CSpecValidator{}.Validate(input))
 		})
-		t.Run("invalid ID", func(t *testing.T) {
+		t.Run("invalid ID - is empty", func(t *testing.T) {
 			input := document()
 			input.ID = DID{}
 			assertIsError(t, ErrInvalidID, W3CSpecValidator{}.Validate(input))
 		})
-		t.Run("invalid controller", func(t *testing.T) {
+		t.Run("invalid ID - is URL", func(t *testing.T) {
+			input := document()
+			input.ID = *didUrl
+			assertIsError(t, ErrInvalidID, W3CSpecValidator{}.Validate(input))
+		})
+
+		t.Run("invalid controller - is empty", func(t *testing.T) {
 			input := document()
 			input.Controller = append(input.Controller, DID{})
+			assertIsError(t, ErrInvalidController, W3CSpecValidator{}.Validate(input))
+		})
+
+		t.Run("invalid controller - is URL", func(t *testing.T) {
+			input := document()
+			input.Controller = append(input.Controller, *didUrl)
 			assertIsError(t, ErrInvalidController, W3CSpecValidator{}.Validate(input))
 		})
 	})

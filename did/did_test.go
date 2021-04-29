@@ -42,16 +42,57 @@ func TestDID_MarshalJSON(t *testing.T) {
 }
 
 func TestParseDID(t *testing.T) {
-	id, err := ParseDID("did:nuts:123")
+	t.Run("parse a DID", func(t *testing.T) {
+		id, err := ParseDID("did:nuts:123")
 
-	if err != nil {
-		t.Errorf("unexpected error: %s", err)
-		return
-	}
+		if err != nil {
+			t.Errorf("unexpected error: %s", err)
+			return
+		}
 
-	if id.String() != "did:nuts:123" {
-		t.Errorf("expected parsed did to be 'did:nuts:123', got: %s", id.String())
-	}
+		if id.String() != "did:nuts:123" {
+			t.Errorf("expected parsed did to be 'did:nuts:123', got: %s", id.String())
+		}
+	})
+	t.Run("error - invalid DID", func(t *testing.T) {
+		id, err := ParseDID("invalidDID")
+		assert.Nil(t, id)
+		assert.EqualError(t, err, "input does not begin with 'did:' prefix")
+
+	})
+	t.Run("error - DID URL", func(t *testing.T) {
+		id, err := ParseDID("did:nuts:123/path?query#fragment")
+		assert.Nil(t, id)
+		assert.EqualError(t, err, "invalid format: DID can not have path, fragment or query params")
+	})
+}
+
+func TestParseDIDURL(t *testing.T) {
+	t.Run("ok parse a DID", func(t *testing.T) {
+		id, err := ParseDIDURL("did:nuts:123")
+
+		if err != nil {
+			t.Errorf("unexpected error: %s", err)
+			return
+		}
+
+		if id.String() != "did:nuts:123" {
+			t.Errorf("expected parsed did to be 'did:nuts:123', got: %s", id.String())
+		}
+	})
+
+	t.Run("ok - parse a DID URL", func(t *testing.T) {
+		id, err := ParseDIDURL("did:nuts:123/path?query#fragment")
+		assert.Equal(t, "did:nuts:123/path?query#fragment", id.String())
+		assert.NoError(t, err)
+	})
+
+	t.Run("error - invalid DID", func(t *testing.T) {
+		id, err := ParseDIDURL("invalidDID")
+		assert.Nil(t, id)
+		assert.EqualError(t, err, "input does not begin with 'did:' prefix")
+
+	})
 }
 
 func TestDID_String(t *testing.T) {
@@ -79,7 +120,7 @@ func TestDID_Empty(t *testing.T) {
 func TestDID_URI(t *testing.T) {
 	id, err := ParseDID("did:nuts:123")
 
-	if ! assert.NoError(t, err) {
+	if !assert.NoError(t, err) {
 		return
 	}
 
