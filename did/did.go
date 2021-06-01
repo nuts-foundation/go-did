@@ -47,11 +47,11 @@ func (d *DID) UnmarshalJSON(bytes []byte) error {
 	var didString string
 	err := json.Unmarshal(bytes, &didString)
 	if err != nil {
-		return fmt.Errorf("unable to unmarshal DID: %w", err)
+		return ErrInvalidDID.wrap(err)
 	}
 	tmp, err := ockamDid.Parse(didString)
 	if err != nil {
-		return fmt.Errorf("unable to parse did: %w", err)
+		return ErrInvalidDID.wrap(err)
 	}
 	d.DID = *tmp
 	return nil
@@ -81,7 +81,7 @@ func (d DID) URI() ssi.URI {
 func ParseDIDURL(input string) (*DID, error) {
 	ockDid, err := ockamDid.Parse(input)
 	if err != nil {
-		return nil, err
+		return nil, ErrInvalidDID.wrap(err)
 	}
 
 	return &DID{DID: *ockDid}, nil
@@ -96,7 +96,36 @@ func ParseDID(input string) (*DID, error) {
 		return nil, err
 	}
 	if did.DID.IsURL() {
-		return nil, errors.New("invalid format: DID can not have path, fragment or query params")
+		return nil, ErrInvalidDID.wrap(errors.New("DID can not have path, fragment or query params"))
 	}
 	return did, nil
+}
+
+// ErrInvalidDID is returned when a parser function is supplied with a string that can't be parsed as DID.
+var ErrInvalidDID = ParserError{msg: "invalid DID"}
+
+// ParserError is used when returning DID-parsing related errors.
+type ParserError struct {
+	msg string
+	err error
+}
+
+func (w ParserError) wrap(err error) error {
+	return ParserError{msg: fmt.Sprintf("%s: %s", w.msg, err.Error()), err: err}
+}
+
+// Is checks whether the given error is a ParserError
+func (w ParserError) Is(other error) bool {
+	_, ok := other.(ParserError)
+	return ok
+}
+
+// Unwrap returns the underlying error.
+func (w ParserError) Unwrap() error {
+	return w.err
+}
+
+// Error returns the message of the error.
+func (w ParserError) Error() string {
+	return w.msg
 }
