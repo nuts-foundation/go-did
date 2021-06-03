@@ -2,7 +2,9 @@ package did
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
 	"testing"
 
 	ockamDid "github.com/ockam-network/did"
@@ -57,13 +59,13 @@ func TestParseDID(t *testing.T) {
 	t.Run("error - invalid DID", func(t *testing.T) {
 		id, err := ParseDID("invalidDID")
 		assert.Nil(t, id)
-		assert.EqualError(t, err, "input does not begin with 'did:' prefix")
+		assert.EqualError(t, err, "invalid DID: input does not begin with 'did:' prefix")
 
 	})
 	t.Run("error - DID URL", func(t *testing.T) {
 		id, err := ParseDID("did:nuts:123/path?query#fragment")
 		assert.Nil(t, id)
-		assert.EqualError(t, err, "invalid format: DID can not have path, fragment or query params")
+		assert.EqualError(t, err, "invalid DID: DID can not have path, fragment or query params")
 	})
 }
 
@@ -90,7 +92,7 @@ func TestParseDIDURL(t *testing.T) {
 	t.Run("error - invalid DID", func(t *testing.T) {
 		id, err := ParseDIDURL("invalidDID")
 		assert.Nil(t, id)
-		assert.EqualError(t, err, "input does not begin with 'did:' prefix")
+		assert.EqualError(t, err, "invalid DID: input does not begin with 'did:' prefix")
 
 	})
 }
@@ -127,4 +129,11 @@ func TestDID_URI(t *testing.T) {
 	uri := id.URI()
 
 	assert.Equal(t, id.String(), uri.String())
+}
+
+func TestError(t *testing.T) {
+	actual := ErrInvalidDID.wrap(io.EOF)
+	assert.True(t, errors.Is(actual, ErrInvalidDID))
+	assert.True(t, errors.Is(actual, io.EOF))
+	assert.False(t, errors.Is(actual, io.ErrShortBuffer))
 }
