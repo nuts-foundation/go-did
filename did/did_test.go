@@ -103,6 +103,14 @@ func TestDID_String(t *testing.T) {
 	assert.Equal(t, expected, fmt.Sprintf("%s", *id))
 }
 
+func TestDID_MarshalText(t *testing.T) {
+	expected := "did:nuts:123"
+	id, _ := ParseDID(expected)
+	actual, err := id.MarshalText()
+	assert.NoError(t, err)
+	assert.Equal(t, []byte(expected), actual)
+}
+
 func TestDID_Empty(t *testing.T) {
 	t.Run("not empty for filled did", func(t *testing.T) {
 		id, err := ParseDID("did:nuts:123")

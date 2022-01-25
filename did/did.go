@@ -1,6 +1,7 @@
 package did
 
 import (
+	"encoding"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -9,6 +10,9 @@ import (
 
 	ockamDid "github.com/ockam-network/did"
 )
+
+var _ fmt.Stringer = DID{}
+var _ encoding.TextMarshaler = DID{}
 
 const DIDContextV1 = "https://www.w3.org/ns/did/v1"
 
@@ -33,6 +37,11 @@ func (d DID) Empty() bool {
 // String returns the DID as formatted string.
 func (d DID) String() string {
 	return d.DID.String()
+}
+
+// MarshalText implements encoding.TextMarshaler
+func (d DID) MarshalText() ([]byte, error) {
+	return []byte(d.String()), nil
 }
 
 // Equals checks whether the DID is exactly equal to another DID
