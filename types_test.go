@@ -38,3 +38,9 @@ func TestParseURI(t *testing.T) {
 func TestURI_String(t *testing.T) {
 	assert.Equal(t, "http://test", URI{url.URL{Scheme: "http", Host: "test"}}.String())
 }
+
+func TestURI_MarshalText(t *testing.T) {
+	actual, err := URI{url.URL{Scheme: "http", Host: "test"}}.MarshalText()
+	assert.NoError(t, err)
+	assert.Equal(t, []byte("http://test"), actual)
+}

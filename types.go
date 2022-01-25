@@ -1,14 +1,25 @@
 package ssi
 
 import (
+	"encoding"
 	"encoding/json"
 	"fmt"
 	"net/url"
 )
 
+var _ encoding.TextMarshaler = URI{}
+var _ json.Marshaler = URI{}
+var _ json.Unmarshaler = &URI{}
+var _ fmt.Stringer = URI{}
+
 // URI is a wrapper around url.URL to add json marshalling
 type URI struct {
 	url.URL
+}
+
+// MarshalText implements encoding.TextMarshaler
+func (v URI) MarshalText() ([]byte, error) {
+	return []byte(v.String()), nil
 }
 
 func (v URI) MarshalJSON() ([]byte, error) {
