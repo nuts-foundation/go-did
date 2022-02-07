@@ -1,9 +1,10 @@
 package ssi
 
 import (
-	"github.com/stretchr/testify/assert"
 	"net/url"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestParseURI(t *testing.T) {
@@ -32,6 +33,12 @@ func TestParseURI(t *testing.T) {
 		_, err := ParseURI(string([]byte{0}))
 
 		assert.Error(t, err)
+	})
+}
+
+func TestMustParseURI(t *testing.T) {
+	assert.Panics(t, func() {
+		MustParseURI(string([]byte{0}))
 	})
 }
 

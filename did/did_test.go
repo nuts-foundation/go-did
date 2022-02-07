@@ -69,6 +69,12 @@ func TestParseDID(t *testing.T) {
 	})
 }
 
+func TestMustParseDID(t *testing.T) {
+	assert.Panics(t, func() {
+		MustParseDID("did:nuts:123/path?query#fragment")
+	})
+}
+
 func TestParseDIDURL(t *testing.T) {
 	t.Run("ok parse a DID", func(t *testing.T) {
 		id, err := ParseDIDURL("did:nuts:123")
@@ -94,6 +100,12 @@ func TestParseDIDURL(t *testing.T) {
 		assert.Nil(t, id)
 		assert.EqualError(t, err, "invalid DID: input does not begin with 'did:' prefix")
 
+	})
+}
+
+func TestMustParseDIDURL(t *testing.T) {
+	assert.Panics(t, func() {
+		MustParseDIDURL("invalidDID")
 	})
 }
 

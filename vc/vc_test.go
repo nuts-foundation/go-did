@@ -2,8 +2,9 @@ package vc
 
 import (
 	"encoding/json"
-	ssi "github.com/nuts-foundation/go-did"
 	"testing"
+
+	ssi "github.com/nuts-foundation/go-did"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -82,7 +83,7 @@ func TestVerifiableCredential_Proofs(t *testing.T) {
 	})
 }
 
-func TestVerifiableCredential_ContainsType(t *testing.T) {
+func TestVerifiableCredential_IsType(t *testing.T) {
 	input := VerifiableCredential{}
 	json.Unmarshal([]byte(`{
 		  "id":"did:example:123#vc-1",
