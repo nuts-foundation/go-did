@@ -1,0 +1,16 @@
+version: 2
+updates:
+  # github actions
+  - package-ecosystem: "github-actions"
+    # checks workflow files in /.github/workflows
+    directory: "/"
+    schedule:
+      interval: "daily"
+
+  # Go
+  - package-ecosystem: "gomod"
+    # checks /go.mod
+    directory: "/"
+    schedule:
+      interval: "daily"
+
