@@ -109,8 +109,8 @@ func ParseDID(input string) (*DID, error) {
 	return did, nil
 }
 
-// Must accepts a function like Parse and returns the value without error or panics otherwise.
-func Must(fn func(string) (*DID, error), input string) DID {
+// must accepts a function like Parse and returns the value without error or panics otherwise.
+func must(fn func(string) (*DID, error), input string) DID {
 	v, err := fn(input)
 	if err != nil {
 		panic(err)
@@ -121,13 +121,13 @@ func Must(fn func(string) (*DID, error), input string) DID {
 // MustParseDID is like ParseDID but panics if the string cannot be parsed.
 // It simplifies safe initialization of global variables holding compiled UUIDs.
 func MustParseDID(input string) DID {
-	return Must(ParseDID, input)
+	return must(ParseDID, input)
 }
 
 // MustParseDIDURL is like ParseDIDURL but panics if the string cannot be parsed.
 // It simplifies safe initialization of global variables holding compiled UUIDs.
 func MustParseDIDURL(input string) DID {
-	return Must(ParseDIDURL, input)
+	return must(ParseDIDURL, input)
 }
 
 // ErrInvalidDID is returned when a parser function is supplied with a string that can't be parsed as DID.
