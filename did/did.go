@@ -5,8 +5,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/nuts-foundation/go-did"
 	"net/url"
+
+	"github.com/nuts-foundation/go-did"
 
 	ockamDid "github.com/ockam-network/did"
 )
@@ -14,14 +15,12 @@ import (
 var _ fmt.Stringer = DID{}
 var _ encoding.TextMarshaler = DID{}
 
+// DIDContextV1 contains the JSON-LD context for a DID Document
 const DIDContextV1 = "https://www.w3.org/ns/did/v1"
 
+// DIDContextV1URI returns DIDContextV1 as a URI
 func DIDContextV1URI() ssi.URI {
-	if underlyingURL, err := ssi.ParseURI(DIDContextV1); err != nil {
-		panic(err)
-	} else {
-		return *underlyingURL
-	}
+	return ssi.MustParseURI(DIDContextV1)
 }
 
 // DID represents a Decentralized Identifier as specified by the DID Core specification (https://www.w3.org/TR/did-core/#identifier).
@@ -108,6 +107,27 @@ func ParseDID(input string) (*DID, error) {
 		return nil, ErrInvalidDID.wrap(errors.New("DID can not have path, fragment or query params"))
 	}
 	return did, nil
+}
+
+// must accepts a function like Parse and returns the value without error or panics otherwise.
+func must(fn func(string) (*DID, error), input string) DID {
+	v, err := fn(input)
+	if err != nil {
+		panic(err)
+	}
+	return *v
+}
+
+// MustParseDID is like ParseDID but panics if the string cannot be parsed.
+// It simplifies safe initialization of global variables holding compiled UUIDs.
+func MustParseDID(input string) DID {
+	return must(ParseDID, input)
+}
+
+// MustParseDIDURL is like ParseDIDURL but panics if the string cannot be parsed.
+// It simplifies safe initialization of global variables holding compiled UUIDs.
+func MustParseDIDURL(input string) DID {
+	return must(ParseDIDURL, input)
 }
 
 // ErrInvalidDID is returned when a parser function is supplied with a string that can't be parsed as DID.

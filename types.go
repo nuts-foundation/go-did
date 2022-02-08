@@ -49,6 +49,14 @@ func ParseURI(input string) (*URI, error) {
 	return &URI{URL: *u}, nil
 }
 
+func MustParseURI(input string) URI {
+	u, err := url.Parse(input)
+	if err != nil {
+		panic(err)
+	}
+	return URI{URL: *u}
+}
+
 func (v URI) String() string {
 	return v.URL.String()
 }

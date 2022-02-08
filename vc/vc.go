@@ -2,9 +2,10 @@ package vc
 
 import (
 	"encoding/json"
-	ssi "github.com/nuts-foundation/go-did"
 	"net/url"
 	"time"
+
+	ssi "github.com/nuts-foundation/go-did"
 
 	"github.com/nuts-foundation/go-did/internal/marshal"
 )
@@ -14,14 +15,10 @@ const VerifiableCredentialType = "VerifiableCredential"
 
 // VerifiableCredentialTypeV1URI returns VerifiableCredential as URI
 func VerifiableCredentialTypeV1URI() ssi.URI {
-	if pURI, err := ssi.ParseURI(VerifiableCredentialType); err != nil {
-		panic(err)
-	} else {
-		return *pURI
-	}
+	return ssi.MustParseURI(VerifiableCredentialType)
 }
 
-// DefaultContext is the context required for every credential
+// VCContextV1 is the context required for every credential and presentation
 const VCContextV1 = "https://www.w3.org/2018/credentials/v1"
 
 // VCContextV1URI returns 'https://www.w3.org/2018/credentials/v1' as URI
@@ -39,7 +36,7 @@ type VerifiableCredential struct {
 	Context []ssi.URI `json:"@context"`
 	// ID is an unique identifier for the credential. It is optional
 	ID *ssi.URI `json:"id,omitempty"`
-	// Type holds multiplte types for a credential. A credential must always have the 'VerifiableCredential' type.
+	// Type holds multiple types for a credential. A credential must always have the 'VerifiableCredential' type.
 	Type []ssi.URI `json:"type"`
 	// Issuer refers to the party that issued the credential
 	Issuer ssi.URI `json:"issuer"`
