@@ -19,7 +19,6 @@ func Test_Document(t *testing.T) {
 	id123Method, _ := ParseDIDURL("did:example:123#method")
 	id456, _ := ParseDID("did:example:456")
 
-
 	t.Run("it can marshal a json did into a Document", func(t *testing.T) {
 		jsonDoc := `
 {
@@ -376,6 +375,29 @@ func TestRoundTripMarshalling(t *testing.T) {
 	})
 }
 
+func TestDocument_RemoveVerificationMethod(t *testing.T) {
+	id123, _ := ParseDID("did:example:123")
+
+	t.Run("ok", func(t *testing.T) {
+		doc := Document{}
+		doc.AddAssertionMethod(&VerificationMethod{ID: *id123})
+
+		doc.RemoveVerificationMethod(*id123)
+
+		assert.Len(t, doc.VerificationMethod, 0,
+			"the verification method should have been deleted")
+		assert.Nil(t, doc.AssertionMethod.FindByID(*id123))
+	})
+
+	t.Run("not found", func(t *testing.T) {
+		doc := Document{}
+
+		doc.RemoveVerificationMethod(*id123)
+
+		assert.Len(t, doc.VerificationMethod, 0)
+	})
+}
+
 func TestVerificationRelationship_UnmarshalJSON(t *testing.T) {
 	t.Run("ok - unmarshal single did", func(t *testing.T) {
 		input := `"did:nuts:123#key-1"`
@@ -454,7 +476,7 @@ func Test_VerificationMethods(t *testing.T) {
 				&VerificationMethod{ID: *id123},
 				&VerificationMethod{ID: *id456},
 			}
-			removedVM := vms.Remove(*id456)
+			removedVM := vms.remove(*id456)
 			assert.Len(t, vms, 1,
 				"the verification method should have been deleted")
 			assert.Equal(t, *id456, removedVM.ID)
@@ -466,7 +488,7 @@ func Test_VerificationMethods(t *testing.T) {
 				&VerificationMethod{ID: *id123},
 				&VerificationMethod{ID: *id456},
 			}
-			removedVM := vms.Remove(*unknownID)
+			removedVM := vms.remove(*unknownID)
 			assert.Nil(t, removedVM)
 			assert.Len(t, vms, 2)
 		})
@@ -585,7 +607,6 @@ func TestVerificationRelationships(t *testing.T) {
 	})
 }
 
-
 func TestDocument_ResolveEndpointURL(t *testing.T) {
 	jsonDoc := `
 {
@@ -624,7 +645,7 @@ func TestDocument_ResolveEndpointURL(t *testing.T) {
 
 	t.Run("multiple services match", func(t *testing.T) {
 		jsonService :=
-`{
+			`{
 	"id":"did:example:123#linked-domain",
 	"type":"custom",
 	"serviceEndpoint": "https://example.com"
