@@ -380,13 +380,22 @@ func TestDocument_RemoveVerificationMethod(t *testing.T) {
 
 	t.Run("ok", func(t *testing.T) {
 		doc := Document{}
-		doc.AddAssertionMethod(&VerificationMethod{ID: *id123})
+		vm := &VerificationMethod{ID: *id123}
+		doc.AddAssertionMethod(vm)
+		doc.AddAuthenticationMethod(vm)
+		doc.AddCapabilityDelegation(vm)
+		doc.AddCapabilityInvocation(vm)
+		doc.AddKeyAgreement(vm)
 
 		doc.RemoveVerificationMethod(*id123)
 
 		assert.Len(t, doc.VerificationMethod, 0,
 			"the verification method should have been deleted")
 		assert.Nil(t, doc.AssertionMethod.FindByID(*id123))
+		assert.Nil(t, doc.Authentication.FindByID(*id123))
+		assert.Nil(t, doc.CapabilityDelegation.FindByID(*id123))
+		assert.Nil(t, doc.CapabilityInvocation.FindByID(*id123))
+		assert.Nil(t, doc.KeyAgreement.FindByID(*id123))
 	})
 
 	t.Run("not found", func(t *testing.T) {
