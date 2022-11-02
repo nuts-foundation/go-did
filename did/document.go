@@ -43,7 +43,7 @@ func (vms VerificationMethods) FindByID(id DID) *VerificationMethod {
 }
 
 // remove a VerificationMethod from the slice.
-// If a verificationMethod was removed with the given URI it will be returned or nil otherwise
+// It returns the removed verificationMethod or nil if it wasn't found
 func (vms *VerificationMethods) remove(id DID) *VerificationMethod {
 	var (
 		filteredVMS []*VerificationMethod
