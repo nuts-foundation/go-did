@@ -485,10 +485,9 @@ func Test_VerificationMethods(t *testing.T) {
 				&VerificationMethod{ID: *id123},
 				&VerificationMethod{ID: *id456},
 			}
-			removedVM := vms.remove(*id456)
+			vms.remove(*id456)
 			assert.Len(t, vms, 1,
 				"the verification method should have been deleted")
-			assert.Equal(t, *id456, removedVM.ID)
 			assert.Equal(t, *id123, vms[0].ID)
 		})
 
@@ -497,8 +496,7 @@ func Test_VerificationMethods(t *testing.T) {
 				&VerificationMethod{ID: *id123},
 				&VerificationMethod{ID: *id456},
 			}
-			removedVM := vms.remove(*unknownID)
-			assert.Nil(t, removedVM)
+			vms.remove(*unknownID)
 			assert.Len(t, vms, 2)
 		})
 	})
