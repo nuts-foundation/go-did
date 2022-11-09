@@ -42,22 +42,15 @@ func (vms VerificationMethods) FindByID(id DID) *VerificationMethod {
 	return nil
 }
 
-// Remove removes a VerificationMethod from the slice.
-// If a verificationMethod was removed with the given DID, it will be returned
-func (vms *VerificationMethods) Remove(id DID) *VerificationMethod {
-	var (
-		filteredVMS []*VerificationMethod
-		foundVM     *VerificationMethod
-	)
+// remove a VerificationMethod from the slice.
+func (vms *VerificationMethods) remove(id DID) {
+	var filteredVMS []*VerificationMethod
 	for _, vm := range *vms {
 		if !vm.ID.Equals(id) {
 			filteredVMS = append(filteredVMS, vm)
-		} else {
-			foundVM = vm
 		}
 	}
 	*vms = filteredVMS
-	return foundVM
 }
 
 // Add adds a verificationMethod to the verificationMethods if it not already present.
@@ -117,6 +110,17 @@ func (vmr *VerificationRelationships) Add(vm *VerificationMethod) {
 		}
 	}
 	*vmr = append(*vmr, VerificationRelationship{vm, vm.ID})
+}
+
+// RemoveVerificationMethod from the document if present.
+// It'll also remove all references to the VerificationMethod
+func (d *Document) RemoveVerificationMethod(vmId DID) {
+	d.VerificationMethod.remove(vmId)
+	d.AssertionMethod.Remove(vmId)
+	d.Authentication.Remove(vmId)
+	d.CapabilityDelegation.Remove(vmId)
+	d.CapabilityInvocation.Remove(vmId)
+	d.KeyAgreement.Remove(vmId)
 }
 
 // AddAuthenticationMethod adds a VerificationMethod as AuthenticationMethod
