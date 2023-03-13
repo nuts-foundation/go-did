@@ -7,7 +7,7 @@ import (
 	"io"
 	"testing"
 
-	ockamDid "github.com/ockam-network/did"
+	ockamDid "github.com/nuts-foundation/did-ockam"
 	"github.com/stretchr/testify/assert"
 )
 

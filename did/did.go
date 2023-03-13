@@ -9,7 +9,7 @@ import (
 
 	"github.com/nuts-foundation/go-did"
 
-	ockamDid "github.com/ockam-network/did"
+	ockamDid "github.com/nuts-foundation/did-ockam"
 )
 
 var _ fmt.Stringer = DID{}
@@ -23,7 +23,7 @@ func DIDContextV1URI() ssi.URI {
 	return ssi.MustParseURI(DIDContextV1)
 }
 
-// DID represents a Decentralized Identifier as specified by the DID Core specification (https://www.w3.org/TR/did-core/#identifier).
+// DID represent a Decentralized Identifier as specified by the DID Core specification (https://www.w3.org/TR/did-core/#identifier).
 type DID struct {
 	ockamDid.DID
 }

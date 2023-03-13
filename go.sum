@@ -18,8 +18,8 @@ github.com/lestrrat-go/jwx v1.2.25 h1:tAx93jN2SdPvFn08fHNAhqFJazn5mBBOB8Zli0g0ot
 github.com/lestrrat-go/jwx v1.2.25/go.mod h1:zoNuZymNl5lgdcu6P7K6ie2QRll5HVfF4xwxBBK1NxY=
 github.com/lestrrat-go/option v1.0.0 h1:WqAWL8kh8VcSoD6xjSH34/1m8yxluXQbDeKNfvFeEO4=
 github.com/lestrrat-go/option v1.0.0/go.mod h1:5ZHFbivi4xwXxhxY9XHDe2FHo6/Z7WWmtT7T5nBBp3I=
-github.com/ockam-network/did v0.1.4-0.20210103172416-02ae01ce06d8 h1:s5GFggECXv/KwF37ax4B7ACMOKoUnKvmur4i+7I07UE=
-github.com/ockam-network/did v0.1.4-0.20210103172416-02ae01ce06d8/go.mod h1:ZsbTIuVGt8OrQEbqWrSztUISN4joeMabdsinbLubbzw=
+github.com/nuts-foundation/did-ockam v0.0.0-20230313074753-fafd938c948c h1:Q2NawUYqQ13HUI1TM6ulcLtsxnwxPMDWsSWjyFWTTLU=
+github.com/nuts-foundation/did-ockam v0.0.0-20230313074753-fafd938c948c/go.mod h1:n0NQI71qGVVShnPDjYdCoNStEW0zZoVWbeSQ+esXuhs=
 github.com/pkg/errors v0.9.1 h1:FEBLx1zS214owpjy7qsBeixbURkuhQAwrK5UwLGTwt4=
 github.com/pkg/errors v0.9.1/go.mod h1:bwawxfHBFNV+L2hUp1rHADufV3IMtnDRdf1r5NINEl0=
 github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZbAQM=
