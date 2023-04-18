@@ -27,5 +27,6 @@ type Proof struct {
 // JSONWebSignature2020Proof is a VC proof with a signature according to JsonWebSignature2020
 type JSONWebSignature2020Proof struct {
 	Proof
-	Jws string `json:"jws"`
+	Challenge string `json:"challenge"`
+	Jws       string `json:"jws"`
 }
