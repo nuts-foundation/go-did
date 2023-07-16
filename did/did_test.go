@@ -4,10 +4,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/stretchr/testify/require"
 	"io"
 	"testing"
 
-	ockamDid "github.com/nuts-foundation/did-ockam"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -27,40 +27,70 @@ func TestDID_UnmarshalJSON(t *testing.T) {
 }
 
 func TestDID_MarshalJSON(t *testing.T) {
-	wrappedDid, err := ockamDid.Parse("did:nuts:123")
-	if err != nil {
-		t.Errorf("unexpected error: %s", err)
-		return
-	}
-	id := DID{*wrappedDid}
-	if err != nil {
-		t.Errorf("unexpected error: %s", err)
-		return
-	}
-	result, err := json.Marshal(id)
-	if string(result) != `"did:nuts:123"` {
-		t.Errorf("expected \"did:nuts:123\" got: %s", result)
-	}
+	actual, err := json.Marshal(MustParseDID("did:nuts:123"))
+	require.NoError(t, err)
+	assert.Equal(t, `"did:nuts:123"`, string(actual))
 }
 
 func TestParseDID(t *testing.T) {
 	t.Run("parse a DID", func(t *testing.T) {
-		id, err := ParseDID("did:nuts:123")
-
-		if err != nil {
-			t.Errorf("unexpected error: %s", err)
-			return
-		}
-
-		if id.String() != "did:nuts:123" {
-			t.Errorf("expected parsed did to be 'did:nuts:123', got: %s", id.String())
-		}
+		t.Run("did:nuts", func(t *testing.T) {
+			id, err := ParseDID("did:nuts:123")
+			require.NoError(t, err)
+			assert.Equal(t, "did:nuts:123", id.String())
+			assert.Equal(t, "nuts", id.Method)
+			assert.Equal(t, "123", id.ID)
+		})
+		t.Run("fragment", func(t *testing.T) {
+			id, err := ParseDIDURL("did:example:123#fragment")
+			require.NoError(t, err)
+			assert.Equal(t, "did:example:123#fragment", id.String())
+			assert.Equal(t, "fragment", id.Fragment)
+		})
+		t.Run("path", func(t *testing.T) {
+			id, err := ParseDIDURL("did:example:123/subpath")
+			require.NoError(t, err)
+			assert.Equal(t, "123", id.ID)
+			assert.Equal(t, "subpath", id.Path)
+		})
+		t.Run("empty path", func(t *testing.T) {
+			id, err := ParseDIDURL("did:example:123/")
+			require.NoError(t, err)
+			assert.Equal(t, "123", id.ID)
+			assert.Equal(t, "", id.Path)
+		})
+		t.Run("path and query", func(t *testing.T) {
+			id, err := ParseDIDURL("did:example:123/subpath?param=value")
+			require.NoError(t, err)
+			assert.Equal(t, "123", id.ID)
+			assert.Equal(t, "subpath", id.Path)
+			assert.Len(t, id.Query(), 1)
+			assert.Equal(t, "value", id.Query().Get("param"))
+		})
+		t.Run("did:web", func(t *testing.T) {
+			t.Run("root without port", func(t *testing.T) {
+				id, err := ParseDID("did:web:example.com")
+				require.NoError(t, err)
+				assert.Equal(t, "did:web:example.com", id.String())
+			})
+			t.Run("root with port", func(t *testing.T) {
+				id, err := ParseDID("did:web:example.com%3A3000")
+				require.NoError(t, err)
+				assert.Equal(t, "did:web:example.com%3A3000", id.String())
+			})
+			t.Run("subpath", func(t *testing.T) {
+				id, err := ParseDID("did:web:example.com%3A3000:user:alice")
+				require.NoError(t, err)
+				assert.Equal(t, "did:web:example.com%3A3000:user:alice", id.String())
+				assert.Equal(t, "web", id.Method)
+				assert.Equal(t, "example.com%3A3000:user:alice", id.ID)
+			})
+		})
 	})
 	t.Run("error - invalid DID", func(t *testing.T) {
 		id, err := ParseDID("invalidDID")
 		assert.Nil(t, id)
 		assert.EqualError(t, err, "invalid DID: input does not begin with 'did:' prefix")
-
 	})
 	t.Run("error - DID URL", func(t *testing.T) {
 		id, err := ParseDID("did:nuts:123/path?query#fragment")

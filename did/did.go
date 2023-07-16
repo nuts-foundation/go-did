@@ -6,10 +6,9 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
+	"strings"
 
 	"github.com/nuts-foundation/go-did"
-
-	ockamDid "github.com/nuts-foundation/did-ockam"
 )
 
 var _ fmt.Stringer = DID{}
@@ -25,7 +24,10 @@ func DIDContextV1URI() ssi.URI {
 
 // DID represent a Decentralized Identifier as specified by the DID Core specification (https://www.w3.org/TR/did-core/#identifier).
 type DID struct {
-	ockamDid.DID
+	Method string
+	ID     string
+	url.URL
+	Path string
 }
 
 // Empty checks whether the DID is set or not
@@ -35,7 +37,7 @@ func (d DID) Empty() bool {
 
 // String returns the DID as formatted string.
 func (d DID) String() string {
-	return d.DID.String()
+	return "did:" + d.URL.String()
 }
 
 // MarshalText implements encoding.TextMarshaler
@@ -57,18 +59,21 @@ func (d *DID) UnmarshalJSON(bytes []byte) error {
 	if err != nil {
 		return ErrInvalidDID.wrap(err)
 	}
-	tmp, err := ockamDid.Parse(didString)
+	tmp, err := ParseDIDURL(didString)
 	if err != nil {
-		return ErrInvalidDID.wrap(err)
+		return err
 	}
-	d.DID = *tmp
+	*d = *tmp
 	return nil
+}
+
+func (d *DID) IsURL() bool {
+	return d.Fragment != "" || d.RawQuery != "" || d.Path != ""
 }
 
 // MarshalJSON marshals the DID to a JSON string
 func (d DID) MarshalJSON() ([]byte, error) {
-	didAsString := d.DID.String()
-	return json.Marshal(didAsString)
+	return json.Marshal(d.String())
 }
 
 // URI converts the DID to an URI.
@@ -87,12 +92,32 @@ func (d DID) URI() ssi.URI {
 // https://www.w3.org/TR/did-core/#did-url-syntax
 // A DID URL is a URL that builds on the DID scheme.
 func ParseDIDURL(input string) (*DID, error) {
-	ockDid, err := ockamDid.Parse(input)
+	withoutScheme := strings.TrimPrefix(input, "did:")
+	if len(withoutScheme) == len(input) {
+		return nil, ErrInvalidDID.wrap(errors.New("input does not begin with 'did:' prefix"))
+	}
+	parsedURL, err := url.Parse(withoutScheme)
 	if err != nil {
 		return nil, ErrInvalidDID.wrap(err)
 	}
+	if parsedURL.Scheme == "" {
+		return nil, ErrInvalidDID
+	}
+	// Since DIDs are opaque URIs, we need to parse the path part ourselves.
+	pathIdx := strings.Index(parsedURL.Opaque, "/")
+	id := parsedURL.Opaque
+	path := parsedURL.RawPath
+	if pathIdx != -1 {
+		id = parsedURL.Opaque[:pathIdx]
+		path = parsedURL.Opaque[pathIdx+1:]
+	}
 
-	return &DID{DID: *ockDid}, nil
+	return &DID{
+		Method: parsedURL.Scheme,
+		ID:     id,
+		Path:   path,
+		URL:    *parsedURL,
+	}, nil
 }
 
 // ParseDID parses a raw DID.
@@ -103,7 +128,7 @@ func ParseDID(input string) (*DID, error) {
 	if err != nil {
 		return nil, err
 	}
-	if did.DID.IsURL() {
+	if did.IsURL() {
 		return nil, ErrInvalidDID.wrap(errors.New("DID can not have path, fragment or query params"))
 	}
 	return did, nil
