@@ -103,6 +103,16 @@ func TestParseDID(t *testing.T) {
 		assert.Nil(t, id)
 		assert.EqualError(t, err, "invalid DID: input does not begin with 'did:' prefix")
 	})
+	t.Run("error - no method", func(t *testing.T) {
+		id, err := ParseDID("did:")
+		assert.Nil(t, id)
+		assert.EqualError(t, err, "invalid DID")
+	})
+	t.Run("error - no method, but with path", func(t *testing.T) {
+		id, err := ParseDID("did:/foo")
+		assert.Nil(t, id)
+		assert.EqualError(t, err, "invalid DID")
+	})
 	t.Run("error - DID URL", func(t *testing.T) {
 		id, err := ParseDID("did:nuts:123/path?query#fragment")
 		assert.Nil(t, id)
