@@ -24,10 +24,11 @@ func DIDContextV1URI() ssi.URI {
 
 // DID represent a Decentralized Identifier as specified by the DID Core specification (https://www.w3.org/TR/did-core/#identifier).
 type DID struct {
+	url.URL
 	Method string
 	ID     string
-	url.URL
-	Path string
+	Path   string
+	raw    string
 }
 
 // Empty checks whether the DID is set or not
@@ -37,7 +38,7 @@ func (d DID) Empty() bool {
 
 // String returns the DID as formatted string.
 func (d DID) String() string {
-	return "did:" + d.URL.String()
+	return d.raw
 }
 
 // MarshalText implements encoding.TextMarshaler
@@ -99,6 +100,7 @@ func (d DID) WithoutURL() DID {
 	return DID{
 		Method: d.Method,
 		ID:     d.ID,
+		raw:    "did:" + d.Method + ":" + d.ID,
 		URL:    u,
 	}
 }
@@ -131,6 +133,7 @@ func ParseDIDURL(input string) (*DID, error) {
 		Method: parsedURL.Scheme,
 		ID:     id,
 		Path:   path,
+		raw:    input,
 		URL:    *parsedURL,
 	}, nil
 }

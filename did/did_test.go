@@ -208,3 +208,11 @@ func TestError(t *testing.T) {
 	assert.True(t, errors.Is(actual, io.EOF))
 	assert.False(t, errors.Is(actual, io.ErrShortBuffer))
 }
+
+func TestDID_WithoutURL(t *testing.T) {
+	id := MustParseDIDURL("did:example:123/path?key=value#fragment").WithoutURL()
+	assert.Equal(t, "did:example:123", id.String())
+	assert.Empty(t, id.Path)
+	assert.Empty(t, id.Fragment)
+	assert.Empty(t, id.Query())
+}
