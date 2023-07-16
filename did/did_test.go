@@ -85,6 +85,17 @@ func TestParseDID(t *testing.T) {
 				assert.Equal(t, "web", id.Method)
 				assert.Equal(t, "example.com%3A3000:user:alice", id.ID)
 			})
+			t.Run("path, query and fragment", func(t *testing.T) {
+				id, err := ParseDIDURL("did:web:example.com%3A3000:user:alice/foo/bar?param=value#fragment")
+				require.NoError(t, err)
+				assert.Equal(t, "did:web:example.com%3A3000:user:alice/foo/bar?param=value#fragment", id.String())
+				assert.Equal(t, "web", id.Method)
+				assert.Equal(t, "example.com%3A3000:user:alice", id.ID)
+				assert.Equal(t, "foo/bar", id.Path)
+				assert.Len(t, id.Query(), 1)
+				assert.Equal(t, "value", id.Query().Get("param"))
+				assert.Equal(t, "fragment", id.Fragment)
+			})
 		})
 	})
 	t.Run("error - invalid DID", func(t *testing.T) {
