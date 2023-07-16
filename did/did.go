@@ -130,13 +130,17 @@ func ParseDIDURL(input string) (*DID, error) {
 		id = parsedURL.Opaque[:pathIdx]
 		path = parsedURL.Opaque[pathIdx+1:]
 	}
+	query := parsedURL.Query()
+	if len(query) == 0 {
+		query = nil
+	}
 
 	return &DID{
 		Method:   parsedURL.Scheme,
 		ID:       id,
 		Path:     path,
 		Fragment: parsedURL.Fragment,
-		Query:    parsedURL.Query(),
+		Query:    query,
 	}, nil
 }
 

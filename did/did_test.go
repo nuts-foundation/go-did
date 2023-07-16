@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/stretchr/testify/require"
 	"io"
+	"net/url"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -144,6 +145,32 @@ func TestParseDIDURL(t *testing.T) {
 		id, err := ParseDIDURL("did:nuts:123/path?query#fragment")
 		assert.Equal(t, "did:nuts:123/path?query=#fragment", id.String())
 		assert.NoError(t, err)
+	})
+
+	t.Run("ok - parsed DID URL equals constructed one", func(t *testing.T) {
+		parsed, err := ParseDIDURL("did:nuts:123/path?key=value#fragment")
+		require.NoError(t, err)
+		constructed := DID{
+			Method: "nuts",
+			ID:     "123",
+			Path:   "path",
+			Query: url.Values{
+				"key": []string{"value"},
+			},
+			Fragment: "fragment",
+		}
+		assert.Equal(t, constructed, *parsed)
+	})
+	t.Run("ok - parsed DID URL equals constructed one (no query)", func(t *testing.T) {
+		parsed, err := ParseDIDURL("did:nuts:123/path#fragment")
+		require.NoError(t, err)
+		constructed := DID{
+			Method:   "nuts",
+			ID:       "123",
+			Path:     "path",
+			Fragment: "fragment",
+		}
+		assert.Equal(t, constructed, *parsed)
 	})
 
 	t.Run("error - invalid DID", func(t *testing.T) {
