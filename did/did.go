@@ -88,6 +88,21 @@ func (d DID) URI() ssi.URI {
 	}
 }
 
+// WithoutURL returns a copy of the DID without URL parts (fragment, query, path).
+func (d DID) WithoutURL() DID {
+	u := d.URL
+	u.Fragment = ""
+	u.RawFragment = ""
+	u.RawQuery = ""
+	u.Path = ""
+	u.RawPath = ""
+	return DID{
+		Method: d.Method,
+		ID:     d.ID,
+		URL:    u,
+	}
+}
+
 // ParseDIDURL parses a DID URL.
 // https://www.w3.org/TR/did-core/#did-url-syntax
 // A DID URL is a URL that builds on the DID scheme.
