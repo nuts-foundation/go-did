@@ -24,11 +24,11 @@ func DIDContextV1URI() ssi.URI {
 
 // DID represent a Decentralized Identifier as specified by the DID Core specification (https://www.w3.org/TR/did-core/#identifier).
 type DID struct {
-	url.URL
-	Method string
-	ID     string
-	Path   string
-	raw    string
+	Method   string
+	ID       string
+	Path     string
+	Query    url.Values
+	Fragment string
 }
 
 // Empty checks whether the DID is set or not
@@ -38,7 +38,17 @@ func (d DID) Empty() bool {
 
 // String returns the DID as formatted string.
 func (d DID) String() string {
-	return d.raw
+	result := "did:" + d.Method + ":" + d.ID
+	if d.Path != "" {
+		result += "/" + d.Path
+	}
+	if len(d.Query) > 0 {
+		result += "?" + d.Query.Encode()
+	}
+	if d.Fragment != "" {
+		result += "#" + d.Fragment
+	}
+	return result
 }
 
 // MarshalText implements encoding.TextMarshaler
@@ -69,7 +79,7 @@ func (d *DID) UnmarshalJSON(bytes []byte) error {
 }
 
 func (d *DID) IsURL() bool {
-	return d.Fragment != "" || d.RawQuery != "" || d.Path != ""
+	return d.Fragment != "" || len(d.Query) != 0 || d.Path != ""
 }
 
 // MarshalJSON marshals the DID to a JSON string
@@ -91,17 +101,9 @@ func (d DID) URI() ssi.URI {
 
 // WithoutURL returns a copy of the DID without URL parts (fragment, query, path).
 func (d DID) WithoutURL() DID {
-	u := d.URL
-	u.Fragment = ""
-	u.RawFragment = ""
-	u.RawQuery = ""
-	u.Path = ""
-	u.RawPath = ""
 	return DID{
 		Method: d.Method,
 		ID:     d.ID,
-		raw:    "did:" + d.Method + ":" + d.ID,
-		URL:    u,
 	}
 }
 
@@ -130,11 +132,11 @@ func ParseDIDURL(input string) (*DID, error) {
 	}
 
 	return &DID{
-		Method: parsedURL.Scheme,
-		ID:     id,
-		Path:   path,
-		raw:    input,
-		URL:    *parsedURL,
+		Method:   parsedURL.Scheme,
+		ID:       id,
+		Path:     path,
+		Fragment: parsedURL.Fragment,
+		Query:    parsedURL.Query(),
 	}, nil
 }
 

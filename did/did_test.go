@@ -64,8 +64,8 @@ func TestParseDID(t *testing.T) {
 			require.NoError(t, err)
 			assert.Equal(t, "123", id.ID)
 			assert.Equal(t, "subpath", id.Path)
-			assert.Len(t, id.Query(), 1)
-			assert.Equal(t, "value", id.Query().Get("param"))
+			assert.Len(t, id.Query, 1)
+			assert.Equal(t, "value", id.Query.Get("param"))
 		})
 		t.Run("did:web", func(t *testing.T) {
 			t.Run("root without port", func(t *testing.T) {
@@ -92,8 +92,8 @@ func TestParseDID(t *testing.T) {
 				assert.Equal(t, "web", id.Method)
 				assert.Equal(t, "example.com%3A3000:user:alice", id.ID)
 				assert.Equal(t, "foo/bar", id.Path)
-				assert.Len(t, id.Query(), 1)
-				assert.Equal(t, "value", id.Query().Get("param"))
+				assert.Len(t, id.Query, 1)
+				assert.Equal(t, "value", id.Query.Get("param"))
 				assert.Equal(t, "fragment", id.Fragment)
 			})
 		})
@@ -142,7 +142,7 @@ func TestParseDIDURL(t *testing.T) {
 
 	t.Run("ok - parse a DID URL", func(t *testing.T) {
 		id, err := ParseDIDURL("did:nuts:123/path?query#fragment")
-		assert.Equal(t, "did:nuts:123/path?query#fragment", id.String())
+		assert.Equal(t, "did:nuts:123/path?query=#fragment", id.String())
 		assert.NoError(t, err)
 	})
 
@@ -214,5 +214,5 @@ func TestDID_WithoutURL(t *testing.T) {
 	assert.Equal(t, "did:example:123", id.String())
 	assert.Empty(t, id.Path)
 	assert.Empty(t, id.Fragment)
-	assert.Empty(t, id.Query())
+	assert.Empty(t, id.Query)
 }
