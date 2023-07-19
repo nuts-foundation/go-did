@@ -3,7 +3,6 @@ package did
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
 	"github.com/stretchr/testify/require"
 	"io"
 	"net/url"
@@ -228,12 +227,6 @@ func TestMustParseDIDURL(t *testing.T) {
 	})
 }
 
-func TestDID_String(t *testing.T) {
-	expected := "did:nuts:123"
-	id, _ := ParseDID(expected)
-	assert.Equal(t, expected, fmt.Sprintf("%s", *id))
-}
-
 func TestDID_MarshalText(t *testing.T) {
 	expected := "did:nuts:123"
 	id, _ := ParseDID(expected)
@@ -282,6 +275,68 @@ func TestDID_Equal(t *testing.T) {
 			assert.False(t, d1.Equals(d2))
 		})
 	})
+}
+
+func TestDID_String(t *testing.T) {
+	type testCase struct {
+		name     string
+		expected string
+		did      DID
+	}
+	testCases := []testCase{
+		{
+			name:     "basic DID",
+			expected: "did:example:123",
+			did: DID{
+				Method: "example",
+				ID:     "123",
+			},
+		},
+		{
+			name:     "with path",
+			expected: "did:example:123/foo",
+			did: DID{
+				Method: "example",
+				ID:     "123",
+				Path:   "foo",
+			},
+		},
+		{
+			name:     "with fragment",
+			expected: "did:example:123#fragment",
+			did: DID{
+				Method:   "example",
+				ID:       "123",
+				Fragment: "fragment",
+			},
+		},
+		{
+			name:     "with query",
+			expected: "did:example:123?key=value",
+			did: DID{
+				Method: "example",
+				ID:     "123",
+				Query:  url.Values{"key": []string{"value"}},
+			},
+		},
+		{
+			name:     "with everything",
+			expected: "did:example:123/foo?key=value#fragment",
+			did: DID{
+				Method:   "example",
+				ID:       "123",
+				Path:     "foo",
+				Fragment: "fragment",
+				Query:    url.Values{"key": []string{"value"}},
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			assert.Equal(t, tc.expected, tc.did.String())
+		})
+	}
 }
 
 func TestDID_Empty(t *testing.T) {
