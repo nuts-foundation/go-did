@@ -108,6 +108,13 @@ func TestParseDIDURL(t *testing.T) {
 			assert.Equal(t, "web", id.Method)
 			assert.Equal(t, "example.com%3A3000:user:alice", id.ID)
 		})
+		t.Run("subpath without port", func(t *testing.T) {
+			id, err := ParseDID("did:web:example.com:u:5")
+			require.NoError(t, err)
+			assert.Equal(t, "did:web:example.com:u:5", id.String())
+			assert.Equal(t, "web", id.Method)
+			assert.Equal(t, "example.com:u:5", id.ID)
+		})
 		t.Run("path, query and fragment", func(t *testing.T) {
 			id, err := ParseDIDURL("did:web:example.com%3A3000:user:alice/foo/bar?param=value#fragment")
 			require.NoError(t, err)

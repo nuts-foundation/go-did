@@ -15,7 +15,7 @@ import (
 var _ fmt.Stringer = DID{}
 var _ encoding.TextMarshaler = DID{}
 
-var didPattern = regexp.MustCompile(`^did:[a-z0-9]+:(?:[a-zA-Z0-9.\-_:]|%[0-9a-fA-F]{2})+(?:/.*|)(?:\?.*|)(?:#.*|)$`)
+var didPattern = regexp.MustCompile(`^did:([a-z0-9]+):((?:([a-zA-Z0-9.\-_:])+|(?:%[0-9a-fA-F]{2})+)+)(/.*|)(\?.*|)(#.*|)$`)
 
 // DIDContextV1 contains the JSON-LD context for a DID Document
 const DIDContextV1 = "https://www.w3.org/ns/did/v1"
