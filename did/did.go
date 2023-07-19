@@ -5,15 +5,16 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"net/url"
-
 	"github.com/nuts-foundation/go-did"
-
-	ockamDid "github.com/nuts-foundation/did-ockam"
+	"net/url"
+	"regexp"
+	"strings"
 )
 
 var _ fmt.Stringer = DID{}
 var _ encoding.TextMarshaler = DID{}
+
+var didPattern = regexp.MustCompile(`^did:([a-z0-9]+):((?:(?:[a-zA-Z0-9.\-_:])+|(?:%[0-9a-fA-F]{2})+)+)(/.*?|)(\?.*?|)(#.*|)$`)
 
 // DIDContextV1 contains the JSON-LD context for a DID Document
 const DIDContextV1 = "https://www.w3.org/ns/did/v1"
@@ -25,7 +26,11 @@ func DIDContextV1URI() ssi.URI {
 
 // DID represent a Decentralized Identifier as specified by the DID Core specification (https://www.w3.org/TR/did-core/#identifier).
 type DID struct {
-	ockamDid.DID
+	Method   string
+	ID       string
+	Path     string
+	Query    url.Values
+	Fragment string
 }
 
 // Empty checks whether the DID is set or not
@@ -35,7 +40,17 @@ func (d DID) Empty() bool {
 
 // String returns the DID as formatted string.
 func (d DID) String() string {
-	return d.DID.String()
+	result := "did:" + d.Method + ":" + d.ID
+	if d.Path != "" {
+		result += "/" + d.Path
+	}
+	if len(d.Query) > 0 {
+		result += "?" + d.Query.Encode()
+	}
+	if d.Fragment != "" {
+		result += "#" + d.Fragment
+	}
+	return result
 }
 
 // MarshalText implements encoding.TextMarshaler
@@ -57,18 +72,21 @@ func (d *DID) UnmarshalJSON(bytes []byte) error {
 	if err != nil {
 		return ErrInvalidDID.wrap(err)
 	}
-	tmp, err := ockamDid.Parse(didString)
+	tmp, err := ParseDIDURL(didString)
 	if err != nil {
-		return ErrInvalidDID.wrap(err)
+		return err
 	}
-	d.DID = *tmp
+	*d = *tmp
 	return nil
+}
+
+func (d *DID) IsURL() bool {
+	return d.Fragment != "" || len(d.Query) != 0 || d.Path != ""
 }
 
 // MarshalJSON marshals the DID to a JSON string
 func (d DID) MarshalJSON() ([]byte, error) {
-	didAsString := d.DID.String()
-	return json.Marshal(didAsString)
+	return json.Marshal(d.String())
 }
 
 // URI converts the DID to an URI.
@@ -83,16 +101,46 @@ func (d DID) URI() ssi.URI {
 	}
 }
 
+// WithoutURL returns a copy of the DID without URL parts (fragment, query, path).
+func (d DID) WithoutURL() DID {
+	return DID{
+		Method: d.Method,
+		ID:     d.ID,
+	}
+}
+
 // ParseDIDURL parses a DID URL.
 // https://www.w3.org/TR/did-core/#did-url-syntax
 // A DID URL is a URL that builds on the DID scheme.
 func ParseDIDURL(input string) (*DID, error) {
-	ockDid, err := ockamDid.Parse(input)
+	// There are 6 submatches (base 0)
+	// 0. complete DID
+	// 1. method
+	// 2. id
+	// 3. path (starting with '/')
+	// 4. query (starting with '?')
+	// 5. fragment (starting with '#')
+	matches := didPattern.FindStringSubmatch(input)
+	if len(matches) == 0 {
+		return nil, ErrInvalidDID
+	}
+
+	result := DID{
+		Method:   matches[1],
+		ID:       matches[2],
+		Path:     strings.TrimPrefix(matches[3], "/"),
+		Fragment: strings.TrimPrefix(matches[5], "#"),
+	}
+
+	query, err := url.ParseQuery(strings.TrimPrefix(matches[4], "?"))
 	if err != nil {
 		return nil, ErrInvalidDID.wrap(err)
 	}
-
-	return &DID{DID: *ockDid}, nil
+	if len(query) > 0 {
+		// Keep empty query as nil for equality checks
+		result.Query = query
+	}
+	return &result, nil
 }
 
 // ParseDID parses a raw DID.
@@ -103,7 +151,7 @@ func ParseDID(input string) (*DID, error) {
 	if err != nil {
 		return nil, err
 	}
-	if did.DID.IsURL() {
+	if did.IsURL() {
 		return nil, ErrInvalidDID.wrap(errors.New("DID can not have path, fragment or query params"))
 	}
 	return did, nil

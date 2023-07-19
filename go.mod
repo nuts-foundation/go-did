@@ -4,7 +4,6 @@ go 1.19
 
 require (
 	github.com/lestrrat-go/jwx v1.2.26
-	github.com/nuts-foundation/did-ockam v0.0.0-20230313074753-fafd938c948c
 	github.com/shengdoushi/base58 v1.0.0
 	github.com/stretchr/testify v1.8.4
 )
