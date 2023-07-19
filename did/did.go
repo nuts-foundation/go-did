@@ -125,21 +125,20 @@ func ParseDIDURL(input string) (*DID, error) {
 		return nil, ErrInvalidDID
 	}
 
-	query, err := url.ParseQuery(strings.TrimPrefix(matches[4], "?"))
-	if err != nil {
-		return nil, ErrInvalidDID.wrap(err)
-	}
-	// Normalize empty query to nil for equality
-	if len(query) == 0 {
-		query = nil
-	}
-
 	result := DID{
 		Method:   matches[1],
 		ID:       matches[2],
 		Path:     strings.TrimPrefix(matches[3], "/"),
-		Query:    query,
 		Fragment: strings.TrimPrefix(matches[5], "#"),
+	}
+
+	query, err := url.ParseQuery(strings.TrimPrefix(matches[4], "?"))
+	if err != nil {
+		return nil, ErrInvalidDID.wrap(err)
+	}
+	if len(query) > 0 {
+		// Keep empty query as nil for equality checks
+		result.Query = query
 	}
 	return &result, nil
 }
