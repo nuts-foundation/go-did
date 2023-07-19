@@ -5,17 +5,16 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/nuts-foundation/go-did"
 	"net/url"
 	"regexp"
 	"strings"
-
-	"github.com/nuts-foundation/go-did"
 )
 
 var _ fmt.Stringer = DID{}
 var _ encoding.TextMarshaler = DID{}
 
-var didPattern = regexp.MustCompile(`^did:([a-z0-9]+):((?:([a-zA-Z0-9.\-_:])+|(?:%[0-9a-fA-F]{2})+)+)(/.*|)(\?.*|)(#.*|)$`)
+var didPattern = regexp.MustCompile(`^did:([a-z0-9]+):((?:(?:[a-zA-Z0-9.\-_:])+|(?:%[0-9a-fA-F]{2})+)+)(/.*?|)(\?.*?|)(#.*|)$`)
 
 // DIDContextV1 contains the JSON-LD context for a DID Document
 const DIDContextV1 = "https://www.w3.org/ns/did/v1"
@@ -114,29 +113,33 @@ func (d DID) WithoutURL() DID {
 // https://www.w3.org/TR/did-core/#did-url-syntax
 // A DID URL is a URL that builds on the DID scheme.
 func ParseDIDURL(input string) (*DID, error) {
-	if !didPattern.MatchString(input) {
+	// There are 6 submatches (base 0)
+	// 0. complete DID
+	// 1. method
+	// 2. id
+	// 3. path (starting with '/')
+	// 4. query (starting with '?')
+	// 5. fragment (starting with '#')
+	matches := didPattern.FindStringSubmatch(input)
+	if len(matches) == 0 {
 		return nil, ErrInvalidDID
 	}
-	parsedURL, err := url.Parse(strings.TrimPrefix(input, "did:"))
+
+	query, err := url.ParseQuery(strings.TrimPrefix(matches[4], "?"))
 	if err != nil {
 		return nil, ErrInvalidDID.wrap(err)
 	}
-	result := DID{
-		Method:   parsedURL.Scheme,
-		ID:       parsedURL.Opaque,
-		Path:     parsedURL.RawPath,
-		Fragment: parsedURL.Fragment,
-		Query:    parsedURL.Query(),
-	}
 	// Normalize empty query to nil for equality
-	if len(result.Query) == 0 {
-		result.Query = nil
+	if len(query) == 0 {
+		query = nil
 	}
-	// Since DIDs are opaque URIs, we need to parse the path part ourselves.
-	pathIdx := strings.Index(parsedURL.Opaque, "/")
-	if pathIdx != -1 {
-		result.ID = parsedURL.Opaque[:pathIdx]
-		result.Path = parsedURL.Opaque[pathIdx+1:]
+
+	result := DID{
+		Method:   matches[1],
+		ID:       matches[2],
+		Path:     strings.TrimPrefix(matches[3], "/"),
+		Query:    query,
+		Fragment: strings.TrimPrefix(matches[5], "#"),
 	}
 	return &result, nil
 }
