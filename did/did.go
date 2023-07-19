@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
+	"regexp"
 	"strings"
 
 	"github.com/nuts-foundation/go-did"
@@ -13,6 +14,8 @@ import (
 
 var _ fmt.Stringer = DID{}
 var _ encoding.TextMarshaler = DID{}
+
+var didPattern = regexp.MustCompile(`^did:[a-z0-9]+:(?:[a-zA-Z0-9.\-_:]|%[0-9a-fA-F]{2})+(?:/.*|)(?:\?.*|)(?:#.*|)$`)
 
 // DIDContextV1 contains the JSON-LD context for a DID Document
 const DIDContextV1 = "https://www.w3.org/ns/did/v1"
@@ -111,37 +114,31 @@ func (d DID) WithoutURL() DID {
 // https://www.w3.org/TR/did-core/#did-url-syntax
 // A DID URL is a URL that builds on the DID scheme.
 func ParseDIDURL(input string) (*DID, error) {
-	withoutScheme := strings.TrimPrefix(input, "did:")
-	if len(withoutScheme) == len(input) {
-		return nil, ErrInvalidDID.wrap(errors.New("input does not begin with 'did:' prefix"))
+	if !didPattern.MatchString(input) {
+		return nil, ErrInvalidDID
 	}
-	parsedURL, err := url.Parse(withoutScheme)
+	parsedURL, err := url.Parse(strings.TrimPrefix(input, "did:"))
 	if err != nil {
 		return nil, ErrInvalidDID.wrap(err)
 	}
-	if parsedURL.Scheme == "" {
-		return nil, ErrInvalidDID
+	result := DID{
+		Method:   parsedURL.Scheme,
+		ID:       parsedURL.Opaque,
+		Path:     parsedURL.RawPath,
+		Fragment: parsedURL.Fragment,
+		Query:    parsedURL.Query(),
+	}
+	// Normalize empty query to nil for equality
+	if len(result.Query) == 0 {
+		result.Query = nil
 	}
 	// Since DIDs are opaque URIs, we need to parse the path part ourselves.
 	pathIdx := strings.Index(parsedURL.Opaque, "/")
-	id := parsedURL.Opaque
-	path := parsedURL.RawPath
 	if pathIdx != -1 {
-		id = parsedURL.Opaque[:pathIdx]
-		path = parsedURL.Opaque[pathIdx+1:]
+		result.ID = parsedURL.Opaque[:pathIdx]
+		result.Path = parsedURL.Opaque[pathIdx+1:]
 	}
-	query := parsedURL.Query()
-	if len(query) == 0 {
-		query = nil
-	}
-
-	return &DID{
-		Method:   parsedURL.Scheme,
-		ID:       id,
-		Path:     path,
-		Fragment: parsedURL.Fragment,
-		Query:    query,
-	}, nil
+	return &result, nil
 }
 
 // ParseDID parses a raw DID.
