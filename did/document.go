@@ -173,6 +173,7 @@ func (d *Document) AddCapabilityDelegation(v *VerificationMethod) {
 	d.CapabilityDelegation.Add(v)
 }
 
+// MarshalJSON marshals the document to JSON-LD.
 func (d Document) MarshalJSON() ([]byte, error) {
 	type alias Document
 	tmp := alias(d)
@@ -180,6 +181,29 @@ func (d Document) MarshalJSON() ([]byte, error) {
 		return nil, err
 	} else {
 		return marshal.NormalizeDocument(data, marshal.Unplural(contextKey), marshal.Unplural(controllerKey))
+	}
+}
+
+// ToJSONLD marshals the document to its JSON-LD representation.
+// It's an alias for MarshalJSON.
+func (d Document) ToJSONLD() ([]byte, error) {
+	return d.MarshalJSON()
+}
+
+// ToJSON marshals the document to its JSON representation.
+func (d Document) ToJSON() ([]byte, error) {
+	type alias Document
+	tmp := alias(d)
+	// @context needs to be removed; unmarshal to map, then marshal again
+	if data, err := json.Marshal(tmp); err != nil {
+		return nil, err
+	} else {
+		var m map[string]interface{}
+		if err := json.Unmarshal(data, &m); err != nil {
+			return nil, err
+		}
+		delete(m, contextKey)
+		return json.Marshal(m)
 	}
 }
 

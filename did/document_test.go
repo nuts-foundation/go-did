@@ -7,6 +7,7 @@ import (
 	"crypto/rand"
 	"encoding/json"
 	ssi "github.com/nuts-foundation/go-did"
+	"github.com/stretchr/testify/require"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -334,23 +335,30 @@ func TestDocument_UnmarshallJSON(t *testing.T) {
 }
 
 func TestRoundTripMarshalling(t *testing.T) {
-	testCases := []string{
-		"did1",
+	type testCase struct {
+		name string
+		file string
+	}
+	testCases := []testCase{
+		{name: "complete", file: "did1"},
+		{name: "only 1 controller", file: "did2"},
 	}
 
-	for _, testCase := range testCases {
-		t.Run(testCase, func(t *testing.T) {
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
 			document := Document{}
-			err := json.Unmarshal(test.ReadTestFile("test/"+testCase+".json"), &document)
-			if !assert.NoError(t, err) {
-				return
-			}
-			marshaled, err := json.Marshal(document)
-			if !assert.NoError(t, err) {
-				return
-			}
-			println(string(marshaled))
-			assert.JSONEq(t, string(test.ReadTestFile("test/"+testCase+"-expected.json")), string(marshaled))
+			err := json.Unmarshal(test.ReadTestFile("test/"+tc.file+".json"), &document)
+			require.NoError(t, err)
+			t.Run("JSON-LD", func(t *testing.T) {
+				marshaled, err := document.ToJSONLD()
+				require.NoError(t, err)
+				assert.JSONEq(t, string(test.ReadTestFile("test/"+tc.file+"-expected.ldjson")), string(marshaled))
+			})
+			t.Run("JSON", func(t *testing.T) {
+				marshaled, err := document.ToJSON()
+				require.NoError(t, err)
+				assert.JSONEq(t, string(test.ReadTestFile("test/"+tc.file+"-expected.json")), string(marshaled))
+			})
 		})
 	}
 
