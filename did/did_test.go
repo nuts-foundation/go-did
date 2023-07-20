@@ -64,17 +64,38 @@ func TestParseDIDURL(t *testing.T) {
 		assert.Equal(t, "did:nuts:123/path?query=#fragment", id.String())
 		assert.NoError(t, err)
 	})
+	t.Run("with escaped ID", func(t *testing.T) {
+		id, err := ParseDIDURL("did:example:fizz%20buzz")
+		require.NoError(t, err)
+		assert.Equal(t, "did:example:fizz%20buzz", id.String())
+		assert.Equal(t, "fizz%20buzz", id.ID)
+		assert.Equal(t, "fizz buzz", id.DecodedID)
+	})
 	t.Run("with fragment", func(t *testing.T) {
 		id, err := ParseDIDURL("did:example:123#fragment")
 		require.NoError(t, err)
 		assert.Equal(t, "did:example:123#fragment", id.String())
 		assert.Equal(t, "fragment", id.Fragment)
 	})
+	t.Run("with escaped fragment", func(t *testing.T) {
+		id, err := ParseDIDURL("did:example:123#frag%20ment")
+		require.NoError(t, err)
+		assert.Equal(t, "did:example:123#frag%20ment", id.String())
+		assert.Equal(t, "frag%20ment", id.Fragment)
+		assert.Equal(t, "frag ment", id.DecodedFragment)
+	})
 	t.Run("with path", func(t *testing.T) {
 		id, err := ParseDIDURL("did:example:123/subpath")
 		require.NoError(t, err)
 		assert.Equal(t, "123", id.ID)
 		assert.Equal(t, "subpath", id.Path)
+	})
+	t.Run("escaped path", func(t *testing.T) {
+		id, err := ParseDIDURL("did:example:123/sub%20path")
+		require.NoError(t, err)
+		assert.Equal(t, "123", id.ID)
+		assert.Equal(t, "sub%20path", id.Path)
+		assert.Equal(t, "sub path", id.DecodedPath)
 	})
 	t.Run("empty path", func(t *testing.T) {
 		id, err := ParseDIDURL("did:example:123/")
@@ -132,13 +153,16 @@ func TestParseDIDURL(t *testing.T) {
 		parsed, err := ParseDIDURL("did:nuts:123/path?key=value#fragment")
 		require.NoError(t, err)
 		constructed := DID{
-			Method: "nuts",
-			ID:     "123",
-			Path:   "path",
+			Method:      "nuts",
+			ID:          "123",
+			DecodedID:   "123",
+			Path:        "path",
+			DecodedPath: "path",
 			Query: url.Values{
 				"key": []string{"value"},
 			},
-			Fragment: "fragment",
+			Fragment:        "fragment",
+			DecodedFragment: "fragment",
 		}
 		assert.Equal(t, constructed, *parsed)
 	})
@@ -146,10 +170,13 @@ func TestParseDIDURL(t *testing.T) {
 		parsed, err := ParseDIDURL("did:nuts:123/path#fragment")
 		require.NoError(t, err)
 		constructed := DID{
-			Method:   "nuts",
-			ID:       "123",
-			Path:     "path",
-			Fragment: "fragment",
+			Method:          "nuts",
+			ID:              "123",
+			DecodedID:       "123",
+			Path:            "path",
+			DecodedPath:     "path",
+			Fragment:        "fragment",
+			DecodedFragment: "fragment",
 		}
 		assert.Equal(t, constructed, *parsed)
 	})
@@ -158,8 +185,9 @@ func TestParseDIDURL(t *testing.T) {
 		parsed, err := ParseDIDURL("did:example:123%f8")
 		require.NoError(t, err)
 		constructed := DID{
-			Method: "example",
-			ID:     "123%f8",
+			Method:    "example",
+			ID:        "123%f8",
+			DecodedID: "123\xf8",
 		}
 		assert.Equal(t, constructed, *parsed)
 	})
@@ -244,20 +272,47 @@ func TestDID_MarshalText(t *testing.T) {
 
 func TestDID_Equal(t *testing.T) {
 	t.Run("DID", func(t *testing.T) {
+		const did = "did:example:123"
 		t.Run("equal", func(t *testing.T) {
-			assert.True(t, MustParseDID("did:example:123").Equals(MustParseDID("did:example:123")))
+			assert.True(t, MustParseDID(did).Equals(MustParseDID(did)))
 		})
 		t.Run("method differs", func(t *testing.T) {
-			assert.False(t, MustParseDID("did:example1:123").Equals(MustParseDID("did:example:123")))
+			assert.False(t, MustParseDID("did:example1:123").Equals(MustParseDID(did)))
 		})
 		t.Run("ID differs", func(t *testing.T) {
-			assert.False(t, MustParseDID("did:example:1234").Equals(MustParseDID("did:example:123")))
+			assert.False(t, MustParseDID("did:example:1234").Equals(MustParseDID(did)))
 		})
 		t.Run("one DID is empty", func(t *testing.T) {
 			assert.False(t, MustParseDID("did:example:1234").Equals(DID{}))
 		})
 		t.Run("both DIDs are empty", func(t *testing.T) {
 			assert.True(t, DID{}.Equals(DID{}))
+		})
+		t.Run("empty query (self)", func(t *testing.T) {
+			d1 := DID{
+				Method: "example",
+				ID:     "123",
+				Query:  nil,
+			}
+			d2 := DID{
+				Method: "example",
+				ID:     "123",
+				Query:  map[string][]string{},
+			}
+			assert.True(t, d1.Equals(d2))
+		})
+		t.Run("empty query (other)", func(t *testing.T) {
+			d1 := DID{
+				Method: "example",
+				ID:     "123",
+				Query:  map[string][]string{},
+			}
+			d2 := DID{
+				Method: "example",
+				ID:     "123",
+				Query:  nil,
+			}
+			assert.True(t, d1.Equals(d2))
 		})
 	})
 	t.Run("DID URL", func(t *testing.T) {
@@ -309,12 +364,30 @@ func TestDID_String(t *testing.T) {
 			},
 		},
 		{
+			name:     "with escapable characters in path",
+			expected: "did:example:123/fizz%20buzz",
+			did: DID{
+				Method: "example",
+				ID:     "123",
+				Path:   "fizz%20buzz",
+			},
+		},
+		{
 			name:     "with fragment",
 			expected: "did:example:123#fragment",
 			did: DID{
 				Method:   "example",
 				ID:       "123",
 				Fragment: "fragment",
+			},
+		},
+		{
+			name:     "with escapable characters in fragment",
+			expected: "did:example:123#fizz%20buzz",
+			did: DID{
+				Method:   "example",
+				ID:       "123",
+				Fragment: "fizz%20buzz",
 			},
 		},
 		{
