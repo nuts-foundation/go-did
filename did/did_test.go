@@ -99,14 +99,14 @@ func TestParseDIDURL(t *testing.T) {
 		t.Run("root with port", func(t *testing.T) {
 			id, err := ParseDID("did:web:example.com%3A3000")
 			require.NoError(t, err)
-			assert.Equal(t, "did:web:example.com%3A3000", id.String())
+			assert.Equal(t, "did:web:example.com:3000", id.String())
 		})
 		t.Run("subpath", func(t *testing.T) {
 			id, err := ParseDID("did:web:example.com%3A3000:user:alice")
 			require.NoError(t, err)
-			assert.Equal(t, "did:web:example.com%3A3000:user:alice", id.String())
+			assert.Equal(t, "did:web:example.com:3000:user:alice", id.String())
 			assert.Equal(t, "web", id.Method)
-			assert.Equal(t, "example.com%3A3000:user:alice", id.ID)
+			assert.Equal(t, "example.com:3000:user:alice", id.ID)
 		})
 		t.Run("subpath without port", func(t *testing.T) {
 			id, err := ParseDID("did:web:example.com:u:5")
@@ -118,9 +118,9 @@ func TestParseDIDURL(t *testing.T) {
 		t.Run("path, query and fragment", func(t *testing.T) {
 			id, err := ParseDIDURL("did:web:example.com%3A3000:user:alice/foo/bar?param=value#fragment")
 			require.NoError(t, err)
-			assert.Equal(t, "did:web:example.com%3A3000:user:alice/foo/bar?param=value#fragment", id.String())
+			assert.Equal(t, "did:web:example.com:3000:user:alice/foo/bar?param=value#fragment", id.String())
 			assert.Equal(t, "web", id.Method)
-			assert.Equal(t, "example.com%3A3000:user:alice", id.ID)
+			assert.Equal(t, "example.com:3000:user:alice", id.ID)
 			assert.Equal(t, "foo/bar", id.Path)
 			assert.Len(t, id.Query, 1)
 			assert.Equal(t, "value", id.Query.Get("param"))
@@ -159,7 +159,7 @@ func TestParseDIDURL(t *testing.T) {
 		require.NoError(t, err)
 		constructed := DID{
 			Method: "example",
-			ID:     "123%f8",
+			ID:     "123%F8",
 		}
 		assert.Equal(t, constructed, *parsed)
 	})

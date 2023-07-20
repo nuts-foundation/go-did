@@ -5,16 +5,16 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/nuts-foundation/go-did"
 	"net/url"
-	"regexp"
 	"strings"
+
+	lib "github.com/pascaldekloe/did"
+
+	"github.com/nuts-foundation/go-did"
 )
 
 var _ fmt.Stringer = DID{}
 var _ encoding.TextMarshaler = DID{}
-
-var didPattern = regexp.MustCompile(`^did:([a-z0-9]+):((?:(?:[a-zA-Z0-9.\-_:])+|(?:%[0-9a-fA-F]{2})+)+)(/.*?|)(\?.*?|)(#.*|)$`)
 
 // DIDContextV1 contains the JSON-LD context for a DID Document
 const DIDContextV1 = "https://www.w3.org/ns/did/v1"
@@ -25,12 +25,14 @@ func DIDContextV1URI() ssi.URI {
 }
 
 // DID represent a Decentralized Identifier as specified by the DID Core specification (https://www.w3.org/TR/did-core/#identifier).
+// BUG(pascaldekloe): DID can't see nor write a root path ("/").
+// BUG(pascaldekloe): DID can't see nor write an empty fragment ("#").
 type DID struct {
 	Method   string
-	ID       string
-	Path     string
+	ID       string // raw [unescaped] form
+	Path     string // raw [unescaped] form, without leading slash
 	Query    url.Values
-	Fragment string
+	Fragment string // raw [unescaped] form
 }
 
 // Empty checks whether the DID is set or not
@@ -67,16 +69,12 @@ func (d DID) Equals(other DID) bool {
 // UnmarshalJSON unmarshals a DID encoded as JSON string, e.g.:
 // "did:nuts:c0dc584345da8a0e1e7a584aa4a36c30ebdb79d907aff96fe0e90ee972f58a17"
 func (d *DID) UnmarshalJSON(bytes []byte) error {
-	var didString string
-	err := json.Unmarshal(bytes, &didString)
+	u := new(lib.URL)
+	err := u.UnmarshalJSON(bytes)
 	if err != nil {
 		return ErrInvalidDID.wrap(err)
 	}
-	tmp, err := ParseDIDURL(didString)
-	if err != nil {
-		return err
-	}
-	*d = *tmp
+	d.fromURL(u)
 	return nil
 }
 
@@ -93,10 +91,11 @@ func (d DID) MarshalJSON() ([]byte, error) {
 // URIs are used in Verifiable Credentials
 func (d DID) URI() ssi.URI {
 	return ssi.URI{
+		// BUG(pascaldekloe): DID URI conversion loses path and query information.
 		URL: url.URL{
-			Scheme:   "did",
-			Opaque:   fmt.Sprintf("%s:%s", d.Method, d.ID),
-			Fragment: d.Fragment,
+			Scheme:      "did",
+			Opaque:      fmt.Sprintf("%s:%s", d.Method, d.ID),
+			RawFragment: d.Fragment,
 		},
 	}
 }
@@ -113,34 +112,27 @@ func (d DID) WithoutURL() DID {
 // https://www.w3.org/TR/did-core/#did-url-syntax
 // A DID URL is a URL that builds on the DID scheme.
 func ParseDIDURL(input string) (*DID, error) {
-	// There are 6 submatches (base 0)
-	// 0. complete DID
-	// 1. method
-	// 2. id
-	// 3. path (starting with '/')
-	// 4. query (starting with '?')
-	// 5. fragment (starting with '#')
-	matches := didPattern.FindStringSubmatch(input)
-	if len(matches) == 0 {
-		return nil, ErrInvalidDID
-	}
-
-	result := DID{
-		Method:   matches[1],
-		ID:       matches[2],
-		Path:     strings.TrimPrefix(matches[3], "/"),
-		Fragment: strings.TrimPrefix(matches[5], "#"),
-	}
-
-	query, err := url.ParseQuery(strings.TrimPrefix(matches[4], "?"))
+	u, err := lib.ParseURL(input)
 	if err != nil {
 		return nil, ErrInvalidDID.wrap(err)
 	}
-	if len(query) > 0 {
-		// Keep empty query as nil for equality checks
-		result.Query = query
+	if u.IsRelative() {
+		return nil, ErrInvalidDID.wrap(errors.New("relative URL not supported"))
 	}
-	return &result, nil
+	return new(DID).fromURL(u), nil
+}
+
+// FromURL maps all attributes.
+func (d *DID) fromURL(u *lib.URL) *DID {
+	d.Method = u.Method
+	d.ID = url.PathEscape(u.SpecID)
+	d.Path = strings.TrimPrefix(u.RawPath, "/")
+	d.Query = nil
+	if u.RawQuery != "" {
+		d.Query, _ = url.ParseQuery(strings.TrimPrefix(u.RawQuery, "?"))
+	}
+	d.Fragment = strings.TrimPrefix(u.RawFragment, "#")
+	return d
 }
 
 // ParseDID parses a raw DID.
