@@ -40,6 +40,9 @@ func (d DID) Empty() bool {
 
 // String returns the DID as formatted string.
 func (d DID) String() string {
+	if d.Empty() {
+		return ""
+	}
 	result := "did:" + d.Method + ":" + d.ID
 	if d.Path != "" {
 		result += "/" + d.Path
