@@ -300,6 +300,11 @@ func TestDID_String(t *testing.T) {
 			},
 		},
 		{
+			name:     "empty DID",
+			expected: "",
+			did:      DID{},
+		},
+		{
 			name:     "with path",
 			expected: "did:example:123/foo",
 			did: DID{
