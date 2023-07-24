@@ -26,11 +26,26 @@ func DIDContextV1URI() ssi.URI {
 
 // DID represent a Decentralized Identifier as specified by the DID Core specification (https://www.w3.org/TR/did-core/#identifier).
 type DID struct {
-	Method   string
-	ID       string
-	Path     string
-	Query    url.Values
+	// Method is the DID method, e.g. "example".
+	Method string
+	// ID is the method-specific ID, in escaped form.
+	ID string
+	// DecodedID is the method-specific ID, in unescaped form.
+	// It is only set during parsing, and not used by the String() method.
+	DecodedID string
+	// Path is the DID path without the leading '/', in escaped form.
+	Path string
+	// DecodedPath is the DID path without the leading '/', in unescaped form.
+	// It is only set during parsing, and not used by the String() method.
+	DecodedPath string
+	// Query contains the DID query key-value pairs, in unescaped form.
+	// String() will escape the values again, and order the keys alphabetically.
+	Query url.Values
+	// Fragment is the DID fragment without the leading '#', in escaped form.
 	Fragment string
+	// DecodedFragment is the DID fragment without the leading '#', in unescaped form.
+	// It is only set during parsing, and not used by the String() method.
+	DecodedFragment string
 }
 
 // Empty checks whether the DID is set or not
@@ -61,10 +76,18 @@ func (d DID) MarshalText() ([]byte, error) {
 	return []byte(d.String()), nil
 }
 
-// Equals checks whether the DID is exactly equal to another DID
-// The check is case sensitive.
+// Equals checks whether the DID equals to another DID.
+// When the DIDs
+// The check is case-sensitive.
 func (d DID) Equals(other DID) bool {
-	return d.String() == other.String()
+	return d.cleanup().String() == other.cleanup().String()
+}
+
+func (d DID) cleanup() DID {
+	if len(d.Query) == 0 {
+		d.Query = nil
+	}
+	return d
 }
 
 // UnmarshalJSON unmarshals a DID encoded as JSON string, e.g.:
@@ -98,7 +121,7 @@ func (d DID) URI() ssi.URI {
 	return ssi.URI{
 		URL: url.URL{
 			Scheme:   "did",
-			Opaque:   fmt.Sprintf("%s:%s", d.Method, d.ID),
+			Opaque:   fmt.Sprintf("%s:%s", d.Method, url.PathEscape(d.ID)),
 			Fragment: d.Fragment,
 		},
 	}
@@ -134,15 +157,24 @@ func ParseDIDURL(input string) (*DID, error) {
 		Path:     strings.TrimPrefix(matches[3], "/"),
 		Fragment: strings.TrimPrefix(matches[5], "#"),
 	}
-
-	query, err := url.ParseQuery(strings.TrimPrefix(matches[4], "?"))
+	var err error
+	result.DecodedID, err = url.PathUnescape(result.ID)
+	if err != nil {
+		return nil, ErrInvalidDID.wrap(fmt.Errorf("invalid ID: %w", err))
+	}
+	result.DecodedPath, err = url.PathUnescape(result.Path)
+	if err != nil {
+		return nil, ErrInvalidDID.wrap(fmt.Errorf("invalid path: %w", err))
+	}
+	result.DecodedFragment, err = url.PathUnescape(result.Fragment)
+	if err != nil {
+		return nil, ErrInvalidDID.wrap(fmt.Errorf("invalid fragment: %w", err))
+	}
+	result.Query, err = url.ParseQuery(strings.TrimPrefix(matches[4], "?"))
 	if err != nil {
 		return nil, ErrInvalidDID.wrap(err)
 	}
-	if len(query) > 0 {
-		// Keep empty query as nil for equality checks
-		result.Query = query
-	}
+	result = result.cleanup()
 	return &result, nil
 }
 
