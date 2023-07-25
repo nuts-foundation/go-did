@@ -130,8 +130,9 @@ func (d DID) URI() ssi.URI {
 // WithoutURL returns a copy of the DID without URL parts (fragment, query, path).
 func (d DID) WithoutURL() DID {
 	return DID{
-		Method: d.Method,
-		ID:     d.ID,
+		Method:    d.Method,
+		ID:        d.ID,
+		DecodedID: d.DecodedID,
 	}
 }
 
