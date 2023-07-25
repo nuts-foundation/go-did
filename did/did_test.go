@@ -460,9 +460,16 @@ func TestError(t *testing.T) {
 }
 
 func TestDID_WithoutURL(t *testing.T) {
-	id := MustParseDIDURL("did:example:123/path?key=value#fragment").WithoutURL()
-	assert.Equal(t, "did:example:123", id.String())
-	assert.Empty(t, id.Path)
-	assert.Empty(t, id.Fragment)
-	assert.Empty(t, id.Query)
+	t.Run("with encoded ID", func(t *testing.T) {
+		id := MustParseDIDURL("did:example:123%20/path?key=value#fragment").WithoutURL()
+		assert.Equal(t, "did:example:123%20", id.String())
+		assert.Equal(t, "123 ", id.DecodedID)
+		assert.Empty(t, id.Path)
+		assert.Empty(t, id.Fragment)
+		assert.Empty(t, id.Query)
+	})
+	t.Run("equalness", func(t *testing.T) {
+		id := MustParseDIDURL("did:example:123/path?key=value#fragment").WithoutURL()
+		assert.True(t, MustParseDID("did:example:123").Equals(id))
+	})
 }
