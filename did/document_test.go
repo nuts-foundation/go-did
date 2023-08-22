@@ -7,6 +7,7 @@ import (
 	"crypto/rand"
 	"encoding/json"
 	ssi "github.com/nuts-foundation/go-did"
+	"github.com/stretchr/testify/require"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -24,17 +25,17 @@ func Test_Document(t *testing.T) {
 {
 	"@context": ["https://www.w3.org/ns/did/v1"],
 	"id": "did:web:identity.foundation",
-	"Controller": ["did:nuts:123", "did:web:example.org"]
+	"controller": ["did:nuts:123", "did:web:example.com"],
+	"alsoKnownAs": ["did:web:example.com"]
 }`
 		doc := Document{}
 		err := json.Unmarshal([]byte(jsonDoc), &doc)
-		if err != nil {
-			t.Errorf("unexpected error: %s", err)
-			return
-		}
-		if doc.Controller[0].String() != "did:nuts:123" {
-			t.Errorf("expected 'did:nuts:123', got: %s", doc.Controller[0].String())
-		}
+
+		require.NoError(t, err)
+		assert.Equal(t, "did:web:identity.foundation", doc.ID.String())
+		assert.Equal(t, "did:nuts:123", doc.Controller[0].String())
+		assert.Equal(t, "did:web:example.com", doc.Controller[1].String())
+		assert.Equal(t, "did:web:example.com", doc.AlsoKnownAs[0].String())
 	})
 
 	var actual Document

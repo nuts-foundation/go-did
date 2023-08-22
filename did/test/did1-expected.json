@@ -5,6 +5,9 @@
     "did:nuts:04cf1e20-378a-4e38-ab1b-401a5018c9ff",
     "did:nuts:f03a00f1-9615-4060-bd00-bd282e150c46"
   ],
+  "alsoKnownAs": [
+    "did:web:example.com"
+  ],
   "verificationMethod": [
     {
       "id": "did:nuts:04cf1e20-378a-4e38-ab1b-401a5018c9ff#key-1",
