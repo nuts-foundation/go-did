@@ -20,6 +20,7 @@ type Document struct {
 	Context              []ssi.URI                 `json:"@context"`
 	ID                   DID                       `json:"id"`
 	Controller           []DID                     `json:"controller,omitempty"`
+	AlsoKnownAs          []ssi.URI                 `json:"alsoKnownAs,omitempty"`
 	VerificationMethod   VerificationMethods       `json:"verificationMethod,omitempty"`
 	Authentication       VerificationRelationships `json:"authentication,omitempty"`
 	AssertionMethod      VerificationRelationships `json:"assertionMethod,omitempty"`
