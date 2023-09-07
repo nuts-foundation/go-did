@@ -146,7 +146,6 @@ func (vc VerifiableCredential) SubjectDID() (*did.DID, error) {
 		if !subjectID.Equals(subject.ID) {
 			return nil, errors.New("unable to get subject DID from VC: credential subjects have the same ID")
 		}
-		subjectID = subject.ID
 	}
 	if subjectID.Empty() {
 		return nil, errors.New("unable to get subject DID from VC: credential subjects have no ID")
