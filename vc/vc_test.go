@@ -2,9 +2,8 @@ package vc
 
 import (
 	"encoding/json"
-	"testing"
-
 	ssi "github.com/nuts-foundation/go-did"
+	"testing"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -114,5 +113,79 @@ func TestVerifiableCredential_ContainsContext(t *testing.T) {
 	t.Run("false", func(t *testing.T) {
 		u, _ := ssi.ParseURI("context")
 		assert.False(t, input.ContainsContext(*u))
+	})
+}
+
+func TestVerifiableCredential_SubjectDID(t *testing.T) {
+	t.Run("1 subject", func(t *testing.T) {
+		input := VerifiableCredential{}
+		input.CredentialSubject = []interface{}{map[string]interface{}{"id": "did:example:123"}}
+
+		id, err := input.SubjectDID()
+
+		assert.NoError(t, err)
+		assert.Equal(t, "did:example:123", id.String())
+	})
+	t.Run("no subjects", func(t *testing.T) {
+		input := VerifiableCredential{}
+		input.CredentialSubject = []interface{}{}
+
+		_, err := input.SubjectDID()
+
+		assert.EqualError(t, err, "unable to get subject DID from VC: there must be at least 1 credentialSubject")
+	})
+	t.Run("1 subject without ID (not supported)", func(t *testing.T) {
+		input := VerifiableCredential{}
+		input.CredentialSubject = []interface{}{
+			map[string]interface{}{},
+		}
+
+		_, err := input.SubjectDID()
+
+		assert.EqualError(t, err, "unable to get subject DID from VC: credential subjects have no ID")
+	})
+	t.Run("2 subjects with the same IDs", func(t *testing.T) {
+		input := VerifiableCredential{}
+		input.CredentialSubject = []interface{}{
+			map[string]interface{}{"id": "did:example:123"},
+			map[string]interface{}{"id": "did:example:123"},
+		}
+
+		id, err := input.SubjectDID()
+
+		assert.NoError(t, err)
+		assert.Equal(t, "did:example:123", id.String())
+	})
+	t.Run("2 subjects with different IDs (not supported)", func(t *testing.T) {
+		input := VerifiableCredential{}
+		input.CredentialSubject = []interface{}{
+			map[string]interface{}{"id": "did:example:123"},
+			map[string]interface{}{"id": "did:example:456"},
+		}
+
+		_, err := input.SubjectDID()
+
+		assert.EqualError(t, err, "unable to get subject DID from VC: credential subjects have the same ID")
+	})
+	t.Run("2 subjects, second doesn't have an IDs (not supported)", func(t *testing.T) {
+		input := VerifiableCredential{}
+		input.CredentialSubject = []interface{}{
+			map[string]interface{}{"id": "did:example:123"},
+			map[string]interface{}{},
+		}
+
+		_, err := input.SubjectDID()
+
+		assert.EqualError(t, err, "unable to get subject DID from VC: credential subjects have the same ID")
+	})
+	t.Run("invalid DID", func(t *testing.T) {
+		input := VerifiableCredential{}
+		input.CredentialSubject = []interface{}{
+			map[string]interface{}{"id": "not a DID"},
+		}
+
+		_, err := input.SubjectDID()
+
+		assert.EqualError(t, err, "unable to get subject DID from VC: invalid DID")
 	})
 }

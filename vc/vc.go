@@ -2,6 +2,9 @@ package vc
 
 import (
 	"encoding/json"
+	"errors"
+	"fmt"
+	"github.com/nuts-foundation/go-did/did"
 	"net/url"
 	"time"
 
@@ -116,6 +119,38 @@ func (vc VerifiableCredential) UnmarshalCredentialSubject(target interface{}) er
 	} else {
 		return json.Unmarshal(asJSON, target)
 	}
+}
+
+// SubjectDID returns the credential subject's ID as DID (credentialSubject.id).
+// If there are multiple subjects, all subjects must have the same ID.
+// It returns an error when:
+// - there are no credential subjects,
+// - the ID is not a valid DID
+// - all subject IDs are empty
+// - not all subjects have the same ID
+func (vc VerifiableCredential) SubjectDID() (*did.DID, error) {
+	if len(vc.CredentialSubject) < 1 {
+		return nil, errors.New("unable to get subject DID from VC: there must be at least 1 credentialSubject")
+	}
+	type credentialSubject struct {
+		ID did.DID `json:"id"`
+	}
+	var subjects []credentialSubject
+	err := vc.UnmarshalCredentialSubject(&subjects)
+	if err != nil {
+		return nil, fmt.Errorf("unable to get subject DID from VC: %w", err)
+	}
+	// Assert all credentials share the same subject
+	subjectID := subjects[0].ID
+	for _, subject := range subjects {
+		if !subjectID.Equals(subject.ID) {
+			return nil, errors.New("unable to get subject DID from VC: credential subjects have the same ID")
+		}
+	}
+	if subjectID.Empty() {
+		return nil, errors.New("unable to get subject DID from VC: credential subjects have no ID")
+	}
+	return &subjectID, nil
 }
 
 // IsType returns true when a credential contains the requested type
