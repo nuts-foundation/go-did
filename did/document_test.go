@@ -6,9 +6,11 @@ import (
 	"crypto/elliptic"
 	"crypto/rand"
 	"encoding/json"
+	"testing"
+
+	"github.com/multiformats/go-multibase"
 	ssi "github.com/nuts-foundation/go-did"
 	"github.com/stretchr/testify/require"
-	"testing"
 
 	"github.com/stretchr/testify/assert"
 
@@ -701,4 +703,37 @@ func TestDocument_IsController(t *testing.T) {
 	t.Run("is not a controller", func(t *testing.T) {
 		assert.False(t, Document{Controller: []DID{*id456}}.IsController(*id123))
 	})
+}
+
+func TestNewVerificationMethod_Multibase(t *testing.T) {
+	// Prepare test data
+	id := DID("did:example:123")
+	keyType := ssi.ED25519VerificationKey2018
+	controller := DID("did:example:controller")
+
+	publicKey, _, err := ed25519.GenerateKey(nil)
+	if err != nil {
+		t.Fatal("Error generating ed25519 key:", err)
+	}
+
+	// Call the function under test
+	verificationMethod, err := NewVerificationMethod(id, keyType, controller, publicKey)
+	if err != nil {
+		t.Fatal("Error creating new verification method:", err)
+	}
+
+	// Test whether PublicKeyMultibase is correctly encoded
+	if verificationMethod.PublicKeyMultibase == "" {
+		t.Fatal("PublicKeyMultibase is empty")
+	}
+
+	// Decode using multibase and compare the results
+	decodedBase, decodedKey, err := multibase.Decode(verificationMethod.PublicKeyMultibase)
+	if err != nil {
+		t.Fatal("Error decoding PublicKeyMultibase:", err)
+	}
+
+	// Check base and key
+	assert.Equal(t, multibase.Base58BTC, decodedBase)
+	assert.Equal(t, publicKey, ed25519.PublicKey(decodedKey))
 }

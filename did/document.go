@@ -7,10 +7,10 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/nuts-foundation/go-did"
+	"github.com/multiformats/go-multibase"
+	ssi "github.com/nuts-foundation/go-did"
 
 	"github.com/lestrrat-go/jwx/jwk"
-	"github.com/shengdoushi/base58"
 
 	"github.com/nuts-foundation/go-did/internal/marshal"
 )
@@ -303,11 +303,11 @@ func (s Service) UnmarshalServiceEndpoint(target interface{}) error {
 
 // VerificationMethod represents a DID Verification Method as specified by the DID Core specification (https://www.w3.org/TR/did-core/#verification-methods).
 type VerificationMethod struct {
-	ID              DID                    `json:"id"`
-	Type            ssi.KeyType            `json:"type,omitempty"`
-	Controller      DID                    `json:"controller,omitempty"`
-	PublicKeyBase58 string                 `json:"publicKeyBase58,omitempty"`
-	PublicKeyJwk    map[string]interface{} `json:"publicKeyJwk,omitempty"`
+	ID                 DID                    `json:"id"`
+	Type               ssi.KeyType            `json:"type,omitempty"`
+	Controller         DID                    `json:"controller,omitempty"`
+	PublicKeyMultibase string                 `json:"PublicKeyMultibase,omitempty"`
+	PublicKeyJwk       map[string]interface{} `json:"publicKeyJwk,omitempty"`
 }
 
 // NewVerificationMethod is a convenience method to easily create verificationMethods based on a set of given params.
@@ -343,8 +343,14 @@ func NewVerificationMethod(id DID, keyType ssi.KeyType, controller DID, key cryp
 		if !ok {
 			return nil, errors.New("wrong key type")
 		}
-		encodedKey := base58.Encode(ed25519Key, base58.BitcoinAlphabet)
-		vm.PublicKeyBase58 = encodedKey
+
+		// Keep Base58 as the default encoding, but use multibase encode it
+		// to keep in line with the DID-core spec.
+		encodedKey, err := multibase.Encode(multibase.Base58BTC, ed25519Key)
+		if err != nil {
+			return nil, err
+		}
+		vm.PublicKeyMultibase = encodedKey
 	}
 
 	return vm, nil
@@ -367,7 +373,7 @@ func (v VerificationMethod) PublicKey() (crypto.PublicKey, error) {
 	var pubKey crypto.PublicKey
 	switch v.Type {
 	case ssi.ED25519VerificationKey2018:
-		keyBytes, err := base58.Decode(v.PublicKeyBase58, base58.BitcoinAlphabet)
+		_, keyBytes, err := multibase.Decode(v.PublicKeyMultibase)
 		if err != nil {
 			return nil, err
 		}

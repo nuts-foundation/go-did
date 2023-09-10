@@ -4,7 +4,7 @@ go 1.19
 
 require (
 	github.com/lestrrat-go/jwx v1.2.26
-	github.com/shengdoushi/base58 v1.0.0
+	github.com/multiformats/go-multibase v0.2.0
 	github.com/stretchr/testify v1.8.4
 )
 
@@ -17,6 +17,9 @@ require (
 	github.com/lestrrat-go/httpcc v1.0.1 // indirect
 	github.com/lestrrat-go/iter v1.0.2 // indirect
 	github.com/lestrrat-go/option v1.0.1 // indirect
+	github.com/mr-tron/base58 v1.1.0 // indirect
+	github.com/multiformats/go-base32 v0.0.3 // indirect
+	github.com/multiformats/go-base36 v0.1.0 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	golang.org/x/crypto v0.9.0 // indirect
