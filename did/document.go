@@ -306,7 +306,7 @@ type VerificationMethod struct {
 	ID                 DID                    `json:"id"`
 	Type               ssi.KeyType            `json:"type,omitempty"`
 	Controller         DID                    `json:"controller,omitempty"`
-	PublicKeyMultibase string                 `json:"PublicKeyMultibase,omitempty"`
+	PublicKeyMultibase string                 `json:"publicKeyMultibase,omitempty"`
 	PublicKeyJwk       map[string]interface{} `json:"publicKeyJwk,omitempty"`
 }
 
