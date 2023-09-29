@@ -50,77 +50,85 @@ func ParseVerifiableCredential(raw string) (*VerifiableCredential, error) {
 	raw = strings.TrimSpace(raw)
 	if strings.HasPrefix(raw, "{") {
 		// Assume JSON-LD format
-		type Alias VerifiableCredential
-		normalizedVC, err := marshal.NormalizeDocument([]byte(raw), pluralContext, marshal.Plural(typeKey), marshal.Plural(credentialSubjectKey), marshal.Plural(proofKey))
-		if err != nil {
-			return nil, err
-		}
-		alias := Alias{}
-		err = json.Unmarshal(normalizedVC, &alias)
-		if err != nil {
-			return nil, err
-		}
-		alias.format = JSONLDCredentialProofFormat
-		alias.raw = raw
-		result := VerifiableCredential(alias)
-		return &result, err
+		return parseJSONLDCredential(raw)
 	} else {
 		// Assume JWT format
-		token, err := jwt.Parse([]byte(raw))
-		if err != nil {
-			return nil, err
-		}
-		var result VerifiableCredential
-		if innerVCInterf := token.PrivateClaims()["vc"]; innerVCInterf != nil {
-			innerVCJSON, _ := json.Marshal(innerVCInterf)
-			err = json.Unmarshal(innerVCJSON, &result)
-			if err != nil {
-				return nil, fmt.Errorf("invalid JWT 'vc' claim: %w", err)
-			}
-		}
-		// parse exp
-		exp := token.Expiration()
-		result.ExpirationDate = &exp
-		// parse iss
-		if iss, err := parseURIClaim(token, jwt.IssuerKey); err != nil {
-			return nil, err
-		} else if iss != nil {
-			result.Issuer = *iss
-		}
-		// parse nbf
-		result.IssuanceDate = token.NotBefore()
-		// parse sub
-		if token.Subject() != "" {
-			for _, credentialSubjectInterf := range result.CredentialSubject {
-				credentialSubject, isMap := credentialSubjectInterf.(map[string]interface{})
-				if isMap {
-					credentialSubject["id"] = token.Subject()
-				}
-			}
-		}
-		var subject string
-		if subjectDID, err := result.SubjectDID(); err != nil {
-			// credentialSubject.id is optional
-			if !errors.Is(err, errCredentialSubjectWithoutID) {
-				return nil, fmt.Errorf("invalid JWT 'sub' claim: %w", err)
-			}
-		} else if subjectDID != nil {
-			subject = subjectDID.String()
-		}
-		if token.Subject() != subject {
-			return nil, errors.New("invalid JWT 'sub' claim: must equal credentialSubject.id")
-		}
-		// parse jti
-		if jti, err := parseURIClaim(token, jwt.JwtIDKey); err != nil {
-			return nil, err
-		} else if jti != nil {
-			result.ID = jti
-		}
-		result.format = JWTCredentialsProofFormat
-		result.raw = raw
-		result.token = token
-		return &result, nil
+		return parseJWTCredential(raw)
 	}
+}
+
+func parseJWTCredential(raw string) (*VerifiableCredential, error) {
+	token, err := jwt.Parse([]byte(raw))
+	if err != nil {
+		return nil, err
+	}
+	var result VerifiableCredential
+	if innerVCInterf := token.PrivateClaims()["vc"]; innerVCInterf != nil {
+		innerVCJSON, _ := json.Marshal(innerVCInterf)
+		err = json.Unmarshal(innerVCJSON, &result)
+		if err != nil {
+			return nil, fmt.Errorf("invalid JWT 'vc' claim: %w", err)
+		}
+	}
+	// parse exp
+	exp := token.Expiration()
+	result.ExpirationDate = &exp
+	// parse iss
+	if iss, err := parseURIClaim(token, jwt.IssuerKey); err != nil {
+		return nil, err
+	} else if iss != nil {
+		result.Issuer = *iss
+	}
+	// parse nbf
+	result.IssuanceDate = token.NotBefore()
+	// parse sub
+	if token.Subject() != "" {
+		for _, credentialSubjectInterf := range result.CredentialSubject {
+			credentialSubject, isMap := credentialSubjectInterf.(map[string]interface{})
+			if isMap {
+				credentialSubject["id"] = token.Subject()
+			}
+		}
+	}
+	var subject string
+	if subjectDID, err := result.SubjectDID(); err != nil {
+		// credentialSubject.id is optional
+		if !errors.Is(err, errCredentialSubjectWithoutID) {
+			return nil, fmt.Errorf("invalid JWT 'sub' claim: %w", err)
+		}
+	} else if subjectDID != nil {
+		subject = subjectDID.String()
+	}
+	if token.Subject() != subject {
+		return nil, errors.New("invalid JWT 'sub' claim: must equal credentialSubject.id")
+	}
+	// parse jti
+	if jti, err := parseURIClaim(token, jwt.JwtIDKey); err != nil {
+		return nil, err
+	} else if jti != nil {
+		result.ID = jti
+	}
+	result.format = JWTCredentialsProofFormat
+	result.raw = raw
+	result.token = token
+	return &result, nil
+}
+
+func parseJSONLDCredential(raw string) (*VerifiableCredential, error) {
+	type Alias VerifiableCredential
+	normalizedVC, err := marshal.NormalizeDocument([]byte(raw), pluralContext, marshal.Plural(typeKey), marshal.Plural(credentialSubjectKey), marshal.Plural(proofKey))
+	if err != nil {
+		return nil, err
+	}
+	alias := Alias{}
+	err = json.Unmarshal(normalizedVC, &alias)
+	if err != nil {
+		return nil, err
+	}
+	alias.format = JSONLDCredentialProofFormat
+	alias.raw = raw
+	result := VerifiableCredential(alias)
+	return &result, err
 }
 
 // VerifiableCredential represents a credential as defined by the Verifiable Credentials Data Model 1.0 specification (https://www.w3.org/TR/vc-data-model/).

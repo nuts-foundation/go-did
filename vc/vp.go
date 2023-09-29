@@ -59,36 +59,40 @@ func ParseVerifiablePresentation(raw string) (*VerifiablePresentation, error) {
 		return &result, err
 	} else {
 		// Assume JWT format
-		token, err := jwt.Parse([]byte(raw))
-		if err != nil {
-			return nil, err
-		}
-		var result VerifiablePresentation
-		if innerVPInterf := token.PrivateClaims()["vp"]; innerVPInterf != nil {
-			innerVPJSON, _ := json.Marshal(innerVPInterf)
-			err = json.Unmarshal(innerVPJSON, &result)
-			if err != nil {
-				return nil, fmt.Errorf("invalid JWT 'vp' claim: %w", err)
-			}
-		}
-		// parse jti
-		if jti, err := parseURIClaim(token, jwt.JwtIDKey); err != nil {
-			return nil, err
-		} else if jti != nil {
-			result.ID = jti
-		}
-		// parse iss
-		if iss, err := parseURIClaim(token, jwt.IssuerKey); err != nil {
-			return nil, err
-		} else if iss != nil {
-			result.Holder = iss
-		}
-		// the other claims don't have a designated field in VerifiablePresentation and can be accessed through JWT()
-		result.format = JWTPresentationProofFormat
-		result.raw = raw
-		result.token = token
-		return &result, nil
+		return parseJTWPresentation(raw)
 	}
+}
+
+func parseJTWPresentation(raw string) (*VerifiablePresentation, error) {
+	token, err := jwt.Parse([]byte(raw))
+	if err != nil {
+		return nil, err
+	}
+	var result VerifiablePresentation
+	if innerVPInterf := token.PrivateClaims()["vp"]; innerVPInterf != nil {
+		innerVPJSON, _ := json.Marshal(innerVPInterf)
+		err = json.Unmarshal(innerVPJSON, &result)
+		if err != nil {
+			return nil, fmt.Errorf("invalid JWT 'vp' claim: %w", err)
+		}
+	}
+	// parse jti
+	if jti, err := parseURIClaim(token, jwt.JwtIDKey); err != nil {
+		return nil, err
+	} else if jti != nil {
+		result.ID = jti
+	}
+	// parse iss
+	if iss, err := parseURIClaim(token, jwt.IssuerKey); err != nil {
+		return nil, err
+	} else if iss != nil {
+		result.Holder = iss
+	}
+	// the other claims don't have a designated field in VerifiablePresentation and can be accessed through JWT()
+	result.format = JWTPresentationProofFormat
+	result.raw = raw
+	result.token = token
+	return &result, nil
 }
 
 func parseURIClaim(token jwt.Token, claim string) (*ssi.URI, error) {
