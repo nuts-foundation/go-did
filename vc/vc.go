@@ -45,6 +45,7 @@ var errCredentialSubjectWithoutID = errors.New("credential subjects have no ID")
 
 // ParseVerifiableCredential parses a Verifiable Credential from a string, which can be either in JSON-LD or JWT format.
 // If the format is JWT, the parsed token can be retrieved using JWT().
+// Note that it does not do any signature checking.
 func ParseVerifiableCredential(raw string) (*VerifiableCredential, error) {
 	raw = strings.TrimSpace(raw)
 	if strings.HasPrefix(raw, "{") {

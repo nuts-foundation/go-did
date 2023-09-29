@@ -47,6 +47,7 @@ type VerifiablePresentation struct {
 
 // ParseVerifiablePresentation parses a Verifiable Presentation from a string, which can be either in JSON-LD or JWT format.
 // If the format is JWT, the parsed token can be retrieved using JWT().
+// Note that it does not do any signature checking.
 func ParseVerifiablePresentation(raw string) (*VerifiablePresentation, error) {
 	if strings.HasPrefix(raw, "{") {
 		// Assume JSON-LD format
