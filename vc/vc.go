@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"github.com/nuts-foundation/go-did/did"
-	"net/url"
 	"time"
 
 	ssi "github.com/nuts-foundation/go-did"
@@ -57,7 +56,7 @@ type VerifiableCredential struct {
 
 // CredentialStatus defines the method on how to determine a credential is revoked.
 type CredentialStatus struct {
-	ID   url.URL `json:"id"`
+	ID   ssi.URI `json:"id"`
 	Type string  `json:"type"`
 }
 
