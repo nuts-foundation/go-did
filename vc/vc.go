@@ -4,7 +4,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/lestrrat-go/jwx/jwt"
 	"github.com/nuts-foundation/go-did/did"
+	"strings"
 	"time"
 
 	ssi "github.com/nuts-foundation/go-did"
@@ -32,6 +34,94 @@ func VCContextV1URI() ssi.URI {
 	}
 }
 
+const (
+	// JSONLDCredentialProofFormat is the format for JSON-LD based credentials.
+	JSONLDCredentialProofFormat string = "ldp_vc"
+	// JWTCredentialsProofFormat is the format for JWT based credentials.
+	JWTCredentialsProofFormat = "jwt_vc"
+)
+
+var errCredentialSubjectWithoutID = errors.New("credential subjects have no ID")
+
+// ParseVerifiableCredential parses a Verifiable Credential from a string, which can be either in JSON-LD or JWT format.
+// If the format is JWT, the parsed token can be retrieved using JWT().
+func ParseVerifiableCredential(raw string) (*VerifiableCredential, error) {
+	raw = strings.TrimSpace(raw)
+	if strings.HasPrefix(raw, "{") {
+		// Assume JSON-LD format
+		type Alias VerifiableCredential
+		normalizedVC, err := marshal.NormalizeDocument([]byte(raw), pluralContext, marshal.Plural(typeKey), marshal.Plural(credentialSubjectKey), marshal.Plural(proofKey))
+		if err != nil {
+			return nil, err
+		}
+		alias := Alias{}
+		err = json.Unmarshal(normalizedVC, &alias)
+		if err != nil {
+			return nil, err
+		}
+		alias.format = JSONLDCredentialProofFormat
+		alias.raw = raw
+		result := VerifiableCredential(alias)
+		return &result, err
+	} else {
+		// Assume JWT format
+		token, err := jwt.Parse([]byte(raw))
+		if err != nil {
+			return nil, err
+		}
+		var result VerifiableCredential
+		if innerVCInterf := token.PrivateClaims()["vc"]; innerVCInterf != nil {
+			innerVCJSON, _ := json.Marshal(innerVCInterf)
+			err = json.Unmarshal(innerVCJSON, &result)
+			if err != nil {
+				return nil, fmt.Errorf("invalid JWT 'vc' claim: %w", err)
+			}
+		}
+		// parse exp
+		exp := token.Expiration()
+		result.ExpirationDate = &exp
+		// parse iss
+		if iss, err := parseURIClaim(token, jwt.IssuerKey); err != nil {
+			return nil, err
+		} else if iss != nil {
+			result.Issuer = *iss
+		}
+		// parse nbf
+		result.IssuanceDate = token.NotBefore()
+		// parse sub
+		if token.Subject() != "" {
+			for _, credentialSubjectInterf := range result.CredentialSubject {
+				credentialSubject, isMap := credentialSubjectInterf.(map[string]interface{})
+				if isMap {
+					credentialSubject["id"] = token.Subject()
+				}
+			}
+		}
+		var subject string
+		if subjectDID, err := result.SubjectDID(); err != nil {
+			// credentialSubject.id is optional
+			if !errors.Is(err, errCredentialSubjectWithoutID) {
+				return nil, fmt.Errorf("invalid JWT 'sub' claim: %w", err)
+			}
+		} else if subjectDID != nil {
+			subject = subjectDID.String()
+		}
+		if token.Subject() != subject {
+			return nil, errors.New("invalid JWT 'sub' claim: must equal credentialSubject.id")
+		}
+		// parse jti
+		if jti, err := parseURIClaim(token, jwt.JwtIDKey); err != nil {
+			return nil, err
+		} else if jti != nil {
+			result.ID = jti
+		}
+		result.format = JWTCredentialsProofFormat
+		result.raw = raw
+		result.token = token
+		return &result, nil
+	}
+}
+
 // VerifiableCredential represents a credential as defined by the Verifiable Credentials Data Model 1.0 specification (https://www.w3.org/TR/vc-data-model/).
 type VerifiableCredential struct {
 	// Context defines the json-ld context to dereference the URIs
@@ -52,6 +142,29 @@ type VerifiableCredential struct {
 	CredentialSubject []interface{} `json:"credentialSubject"`
 	// Proof contains the cryptographic proof(s). It must be extracted using the Proofs method or UnmarshalProofValue method for non-generic proof fields.
 	Proof []interface{} `json:"proof"`
+
+	format string
+	raw    string
+	token  jwt.Token
+}
+
+// Format returns the format of the credential (e.g. jwt_vc or ldp_vc).
+func (vc VerifiableCredential) Format() string {
+	return vc.format
+}
+
+// Raw returns the source of the credential as it was parsed.
+func (vc VerifiableCredential) Raw() string {
+	return vc.raw
+}
+
+// JWT returns the JWT token if the credential was parsed from a JWT.
+func (vc VerifiableCredential) JWT() jwt.Token {
+	if vc.token == nil {
+		return nil
+	}
+	token, _ := vc.token.Clone()
+	return token
 }
 
 // CredentialStatus defines the method on how to determine a credential is revoked.
@@ -87,18 +200,19 @@ func (vc VerifiableCredential) MarshalJSON() ([]byte, error) {
 }
 
 func (vc *VerifiableCredential) UnmarshalJSON(b []byte) error {
-	type Alias VerifiableCredential
-	normalizedVC, err := marshal.NormalizeDocument(b, pluralContext, marshal.Plural(typeKey), marshal.Plural(credentialSubjectKey), marshal.Plural(proofKey))
-	if err != nil {
-		return err
+	var str string
+	if len(b) > 0 && b[0] == '"' {
+		if err := json.Unmarshal(b, &str); err != nil {
+			return err
+		}
+	} else {
+		str = string(b)
 	}
-	tmp := Alias{}
-	err = json.Unmarshal(normalizedVC, &tmp)
-	if err != nil {
-		return err
+	credential, err := ParseVerifiableCredential(str)
+	if err == nil {
+		*vc = *credential
 	}
-	*vc = (VerifiableCredential)(tmp)
-	return nil
+	return err
 }
 
 // UnmarshalProofValue unmarshalls the proof to the given proof type. Always pass a slice as target since there could be multiple proofs.
@@ -147,7 +261,7 @@ func (vc VerifiableCredential) SubjectDID() (*did.DID, error) {
 		}
 	}
 	if subjectID.Empty() {
-		return nil, errors.New("unable to get subject DID from VC: credential subjects have no ID")
+		return nil, fmt.Errorf("unable to get subject DID from VC: %w", errCredentialSubjectWithoutID)
 	}
 	return &subjectID, nil
 }

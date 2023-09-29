@@ -4,10 +4,82 @@ import (
 	"encoding/json"
 	ssi "github.com/nuts-foundation/go-did"
 	"github.com/stretchr/testify/require"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 )
+
+// jwtCredential is taken from https://www.w3.org/TR/vc-data-model/#example-verifiable-credential-using-jwt-compact-serialization-non-normative
+const jwtCredential = `eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6ImRpZDpleGFtcGxlOmFiZmUxM2Y3MTIxMjA0
+MzFjMjc2ZTEyZWNhYiNrZXlzLTEifQ.eyJzdWIiOiJkaWQ6ZXhhbXBsZTplYmZlYjFmNzEyZWJjNmYxY
+zI3NmUxMmVjMjEiLCJqdGkiOiJodHRwOi8vZXhhbXBsZS5lZHUvY3JlZGVudGlhbHMvMzczMiIsImlzc
+yI6Imh0dHBzOi8vZXhhbXBsZS5jb20va2V5cy9mb28uandrIiwibmJmIjoxNTQxNDkzNzI0LCJpYXQiO
+jE1NDE0OTM3MjQsImV4cCI6MTU3MzAyOTcyMywibm9uY2UiOiI2NjAhNjM0NUZTZXIiLCJ2YyI6eyJAY
+29udGV4dCI6WyJodHRwczovL3d3dy53My5vcmcvMjAxOC9jcmVkZW50aWFscy92MSIsImh0dHBzOi8vd
+3d3LnczLm9yZy8yMDE4L2NyZWRlbnRpYWxzL2V4YW1wbGVzL3YxIl0sInR5cGUiOlsiVmVyaWZpYWJsZ
+UNyZWRlbnRpYWwiLCJVbml2ZXJzaXR5RGVncmVlQ3JlZGVudGlhbCJdLCJjcmVkZW50aWFsU3ViamVjd
+CI6eyJkZWdyZWUiOnsidHlwZSI6IkJhY2hlbG9yRGVncmVlIiwibmFtZSI6IjxzcGFuIGxhbmc9J2ZyL
+UNBJz5CYWNjYWxhdXLDqWF0IGVuIG11c2lxdWVzIG51bcOpcmlxdWVzPC9zcGFuPiJ9fX19.KLJo5GAy
+BND3LDTn9H7FQokEsUEi8jKwXhGvoN3JtRa51xrNDgXDb0cq1UTYB-rK4Ft9YVmR1NI_ZOF8oGc_7wAp
+8PHbF2HaWodQIoOBxxT-4WNqAxft7ET6lkH-4S6Ux3rSGAmczMohEEf8eCeN-jC8WekdPl6zKZQj0YPB
+1rx6X0-xlFBs7cl6Wt8rfBP_tZ9YgVWrQmUWypSioc0MUyiphmyEbLZagTyPlUyflGlEdqrZAv6eSe6R
+txJy6M1-lD7a5HTzanYTWBPAUHDZGyGKXdJw-W_x0IWChBzI8t3kpG253fg6V3tPgHeKXE94fz_QpYfg
+--7kLsyBAfQGbg`
+
+func TestVerifiableCredential_UnmarshalJSON(t *testing.T) {
+	t.Run("JSON-LD", func(t *testing.T) {
+		input := VerifiableCredential{}
+		raw := `{
+		  "id":"did:example:123#vc-1",
+		  "type":["VerifiableCredential", "custom"],
+		  "credentialSubject": {"name": "test"}
+		}`
+		err := json.Unmarshal([]byte(raw), &input)
+		require.NoError(t, err)
+		assert.Equal(t, "did:example:123#vc-1", input.ID.String())
+		assert.Equal(t, []ssi.URI{VerifiableCredentialTypeV1URI(), ssi.MustParseURI("custom")}, input.Type)
+		assert.Equal(t, []interface{}{map[string]interface{}{"name": "test"}}, input.CredentialSubject)
+		assert.Equal(t, JSONLDCredentialProofFormat, input.Format())
+		assert.Equal(t, raw, input.Raw())
+		assert.Nil(t, input.JWT())
+	})
+	t.Run("JWT", func(t *testing.T) {
+		input := VerifiableCredential{}
+		raw := strings.ReplaceAll(jwtCredential, "\n", "")
+		err := json.Unmarshal([]byte(`"`+raw+`"`), &input)
+		require.NoError(t, err)
+		assert.Equal(t, []ssi.URI{ssi.MustParseURI("VerifiableCredential"), ssi.MustParseURI("UniversityDegreeCredential")}, input.Type)
+		assert.Len(t, input.CredentialSubject, 1)
+		assert.NotNil(t, input.CredentialSubject[0].(map[string]interface{})["degree"])
+		assert.Equal(t, JWTCredentialsProofFormat, input.Format())
+		assert.Equal(t, raw, input.Raw())
+		assert.NotNil(t, input.JWT())
+	})
+}
+
+func TestParseVerifiableCredential(t *testing.T) {
+	t.Run("JSON-LD", func(t *testing.T) {
+		input := VerifiableCredential{}
+		err := json.Unmarshal([]byte(`{
+		  "id":"did:example:123#vc-1",
+		  "type":["VerifiableCredential", "custom"],
+		  "credentialSubject": {"name": "test"}
+		}`), &input)
+		require.NoError(t, err)
+		assert.Equal(t, "did:example:123#vc-1", input.ID.String())
+		assert.Equal(t, []ssi.URI{VerifiableCredentialTypeV1URI(), ssi.MustParseURI("custom")}, input.Type)
+		assert.Equal(t, []interface{}{map[string]interface{}{"name": "test"}}, input.CredentialSubject)
+	})
+	t.Run("JWT", func(t *testing.T) {
+		input := VerifiableCredential{}
+		err := json.Unmarshal([]byte(`"`+strings.ReplaceAll(jwtCredential, "\n", "")+`"`), &input)
+		require.NoError(t, err)
+		assert.Equal(t, []ssi.URI{ssi.MustParseURI("VerifiableCredential"), ssi.MustParseURI("UniversityDegreeCredential")}, input.Type)
+		assert.Len(t, input.CredentialSubject, 1)
+		assert.NotNil(t, input.CredentialSubject[0].(map[string]interface{})["degree"])
+	})
+}
 
 func TestVerifiableCredential_UnmarshalCredentialSubject(t *testing.T) {
 	type exampleSubject struct {

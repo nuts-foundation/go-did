@@ -2,6 +2,9 @@ package vc
 
 import (
 	"encoding/json"
+	"fmt"
+	"github.com/lestrrat-go/jwx/jwt"
+	"strings"
 
 	ssi "github.com/nuts-foundation/go-did"
 	"github.com/nuts-foundation/go-did/internal/marshal"
@@ -14,6 +17,13 @@ const VerifiablePresentationType = "VerifiablePresentation"
 func VerifiablePresentationTypeV1URI() ssi.URI {
 	return ssi.MustParseURI(VerifiablePresentationType)
 }
+
+const (
+	// JSONLDPresentationProofFormat is the format for JSON-LD based presentations.
+	JSONLDPresentationProofFormat string = "ldp_vp"
+	// JWTPresentationProofFormat is the format for JWT based presentations.
+	JWTPresentationProofFormat = "jwt_vp"
+)
 
 // VerifiablePresentation represents a presentation as defined by the Verifiable Credentials Data Model 1.0 specification (https://www.w3.org/TR/vc-data-model/).
 type VerifiablePresentation struct {
@@ -29,6 +39,77 @@ type VerifiablePresentation struct {
 	VerifiableCredential []VerifiableCredential `json:"verifiableCredential,omitempty"`
 	// Proof contains the cryptographic proof(s). It must be extracted using the Proofs method or UnmarshalProofValue method for non-generic proof fields.
 	Proof []interface{} `json:"proof,omitempty"`
+
+	format string
+	raw    string
+	token  jwt.Token
+}
+
+// ParseVerifiablePresentation parses a Verifiable Presentation from a string, which can be either in JSON-LD or JWT format.
+// If the format is JWT, the parsed token can be retrieved using JWT().
+func ParseVerifiablePresentation(raw string) (*VerifiablePresentation, error) {
+	if strings.HasPrefix(raw, "{") {
+		// Assume JSON-LD format
+		var result VerifiablePresentation
+		err := json.Unmarshal([]byte(raw), &result)
+		if err == nil {
+			result.format = JSONLDPresentationProofFormat
+		}
+		return &result, err
+	} else {
+		// Assume JWT format
+		token, err := jwt.Parse([]byte(raw))
+		if err != nil {
+			return nil, err
+		}
+		var result VerifiablePresentation
+		if innerVPInterf := token.PrivateClaims()["vp"]; innerVPInterf != nil {
+			innerVPJSON, _ := json.Marshal(innerVPInterf)
+			err = json.Unmarshal(innerVPJSON, &result)
+			if err != nil {
+				return nil, fmt.Errorf("invalid JWT 'vp' claim: %w", err)
+			}
+		}
+		// parse jti
+		if jti, err := parseURIClaim(token, jwt.JwtIDKey); err != nil {
+			return nil, err
+		} else if jti != nil {
+			result.ID = jti
+		}
+		// parse iss
+		if iss, err := parseURIClaim(token, jwt.IssuerKey); err != nil {
+			return nil, err
+		} else if iss != nil {
+			result.Holder = iss
+		}
+		// the other claims don't have a designated field in VerifiablePresentation and can be accessed through JWT()
+		result.format = JWTPresentationProofFormat
+		result.raw = raw
+		result.token = token
+		return &result, nil
+	}
+}
+
+func parseURIClaim(token jwt.Token, claim string) (*ssi.URI, error) {
+	if val, ok := token.Get(claim); ok {
+		if str, ok := val.(string); !ok {
+			return nil, fmt.Errorf("%s must be a string", claim)
+		} else {
+			return ssi.ParseURI(str)
+		}
+	}
+	return nil, nil
+}
+
+// Format returns the format of the presentation (e.g. jwt_vp or ldp_vp).
+func (vp VerifiablePresentation) Format() string {
+	return vp.format
+}
+
+// JWT returns the JWT token if the presentation was parsed from a JWT.
+func (vp VerifiablePresentation) JWT() jwt.Token {
+	token, _ := vp.token.Clone()
+	return token
 }
 
 // Proofs returns the basic proofs for this presentation. For specific proof contents, UnmarshalProofValue must be used.
@@ -48,12 +129,19 @@ func (vp VerifiablePresentation) Proofs() ([]Proof, error) {
 }
 
 func (vp VerifiablePresentation) MarshalJSON() ([]byte, error) {
-	type alias VerifiablePresentation
-	tmp := alias(vp)
-	if data, err := json.Marshal(tmp); err != nil {
-		return nil, err
-	} else {
-		return marshal.NormalizeDocument(data, pluralContext, marshal.Unplural(typeKey), marshal.Unplural(verifiableCredentialKey), marshal.Unplural(proofKey))
+	switch vp.format {
+	default:
+		fallthrough
+	case JSONLDPresentationProofFormat:
+		type alias VerifiablePresentation
+		tmp := alias(vp)
+		if data, err := json.Marshal(tmp); err != nil {
+			return nil, err
+		} else {
+			return marshal.NormalizeDocument(data, pluralContext, marshal.Unplural(typeKey), marshal.Unplural(verifiableCredentialKey), marshal.Unplural(proofKey))
+		}
+	case JWTPresentationProofFormat:
+		return json.Marshal(vp.raw)
 	}
 }
 
@@ -69,6 +157,7 @@ func (vp *VerifiablePresentation) UnmarshalJSON(b []byte) error {
 		return err
 	}
 	*vp = (VerifiablePresentation)(tmp)
+	vp.format = JSONLDPresentationProofFormat
 	return nil
 }
 
