@@ -117,6 +117,11 @@ func (vp VerifiablePresentation) JWT() jwt.Token {
 	return token
 }
 
+// Raw returns the source of the presentation as it was parsed.
+func (vp VerifiablePresentation) Raw() string {
+	return vp.raw
+}
+
 // Proofs returns the basic proofs for this presentation. For specific proof contents, UnmarshalProofValue must be used.
 func (vp VerifiablePresentation) Proofs() ([]Proof, error) {
 	var (
