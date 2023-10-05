@@ -38,12 +38,14 @@ const (
 	// JSONLDCredentialProofFormat is the format for JSON-LD based credentials.
 	JSONLDCredentialProofFormat string = "ldp_vc"
 	// JWTCredentialsProofFormat is the format for JWT based credentials.
+	// Note: various specs have not yet decided on the exact const (jwt_vc or jwt_vc_json, etc), so this is subject to change.
 	JWTCredentialsProofFormat = "jwt_vc"
 )
 
 var errCredentialSubjectWithoutID = errors.New("credential subjects have no ID")
 
 // ParseVerifiableCredential parses a Verifiable Credential from a string, which can be either in JSON-LD or JWT format.
+// JWTs are parsed according to https://www.w3.org/TR/2022/REC-vc-data-model-20220303/#jwt-decoding
 // If the format is JWT, the parsed token can be retrieved using JWT().
 // Note that it does not do any signature checking.
 func ParseVerifiableCredential(raw string) (*VerifiableCredential, error) {
@@ -57,6 +59,7 @@ func ParseVerifiableCredential(raw string) (*VerifiableCredential, error) {
 	}
 }
 
+// parseJWTCredential parses a JWT credential according to https://www.w3.org/TR/2022/REC-vc-data-model-20220303/#jwt-decoding
 func parseJWTCredential(raw string) (*VerifiableCredential, error) {
 	token, err := jwt.Parse([]byte(raw))
 	if err != nil {
@@ -89,18 +92,6 @@ func parseJWTCredential(raw string) (*VerifiableCredential, error) {
 				credentialSubject["id"] = token.Subject()
 			}
 		}
-	}
-	var subject string
-	if subjectDID, err := result.SubjectDID(); err != nil {
-		// credentialSubject.id is optional
-		if !errors.Is(err, errCredentialSubjectWithoutID) {
-			return nil, fmt.Errorf("invalid JWT 'sub' claim: %w", err)
-		}
-	} else if subjectDID != nil {
-		subject = subjectDID.String()
-	}
-	if token.Subject() != subject {
-		return nil, errors.New("invalid JWT 'sub' claim: must equal credentialSubject.id")
 	}
 	// parse jti
 	if jti, err := parseURIClaim(token, jwt.JwtIDKey); err != nil {

@@ -22,6 +22,7 @@ const (
 	// JSONLDPresentationProofFormat is the format for JSON-LD based presentations.
 	JSONLDPresentationProofFormat string = "ldp_vp"
 	// JWTPresentationProofFormat is the format for JWT based presentations.
+	// Note: various specs have not yet decided on the exact const (jwt_vp or jwt_vp_json, etc), so this is subject to change.
 	JWTPresentationProofFormat = "jwt_vp"
 )
 
@@ -87,6 +88,20 @@ func parseJTWPresentation(raw string) (*VerifiablePresentation, error) {
 		return nil, err
 	} else if iss != nil {
 		result.Holder = iss
+	}
+	// assert that presenter = holder of VCs. Otherwise, custom validation logic would be required
+	// to assert the presenter is authorized to present the VCs.
+	var subject string
+	if subjectDID, err := result.SubjectDID(); err != nil {
+		// credentialSubject.id is optional
+		if !errors.Is(err, errCredentialSubjectWithoutID) {
+			return nil, fmt.Errorf("invalid JWT 'sub' claim: %w", err)
+		}
+	} else if subjectDID != nil {
+		subject = subjectDID.String()
+	}
+	if token.Subject() != subject {
+		return nil, errors.New("invalid JWT 'sub' claim: must equal credentialSubject.id")
 	}
 	// the other claims don't have a designated field in VerifiablePresentation and can be accessed through JWT()
 	result.format = JWTPresentationProofFormat
