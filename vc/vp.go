@@ -48,7 +48,7 @@ type VerifiablePresentation struct {
 
 // ParseVerifiablePresentation parses a Verifiable Presentation from a string, which can be either in JSON-LD or JWT format.
 // If the format is JWT, the parsed token can be retrieved using JWT().
-// Note that it does not do any signature checking.
+// Note that it does not do any signature checking, or check that the signer of the VP is the subject of the VCs.
 func ParseVerifiablePresentation(raw string) (*VerifiablePresentation, error) {
 	if strings.HasPrefix(raw, "{") {
 		// Assume JSON-LD format
@@ -88,20 +88,6 @@ func parseJTWPresentation(raw string) (*VerifiablePresentation, error) {
 		return nil, err
 	} else if iss != nil {
 		result.Holder = iss
-	}
-	// assert that presenter = holder of VCs. Otherwise, custom validation logic would be required
-	// to assert the presenter is authorized to present the VCs.
-	var subject string
-	if subjectDID, err := result.SubjectDID(); err != nil {
-		// credentialSubject.id is optional
-		if !errors.Is(err, errCredentialSubjectWithoutID) {
-			return nil, fmt.Errorf("invalid JWT 'sub' claim: %w", err)
-		}
-	} else if subjectDID != nil {
-		subject = subjectDID.String()
-	}
-	if token.Subject() != subject {
-		return nil, errors.New("invalid JWT 'sub' claim: must equal credentialSubject.id")
 	}
 	// the other claims don't have a designated field in VerifiablePresentation and can be accessed through JWT()
 	result.format = JWTPresentationProofFormat
