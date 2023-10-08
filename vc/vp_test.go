@@ -189,15 +189,18 @@ func TestVerifiablePresentation_ContainsContext(t *testing.T) {
 
 func TestParseVerifiablePresentation(t *testing.T) {
 	t.Run("JSON-LD", func(t *testing.T) {
-		vp, err := ParseVerifiablePresentation(`{
+		raw := `{
 		  "id":"did:example:123#vp-1",
 		  "@context":["https://www.w3.org/2018/credentials/v1"]
-		}`)
+		}`
+		vp, err := ParseVerifiablePresentation(raw)
 		require.NoError(t, err)
 		require.NotNil(t, vp)
 		assert.Equal(t, JSONLDPresentationProofFormat, vp.Format())
 		assert.Equal(t, "did:example:123#vp-1", vp.ID.String())
 		assert.Equal(t, []ssi.URI{VCContextV1URI()}, vp.Context)
+		assert.Nil(t, vp.JWT())
+		assert.Equal(t, raw, vp.Raw())
 	})
 	t.Run("JWT", func(t *testing.T) {
 		vp, err := ParseVerifiablePresentation(jwtPresentation)
@@ -210,6 +213,8 @@ func TestParseVerifiablePresentation(t *testing.T) {
 		assert.Len(t, vp.Type, 2)
 		assert.True(t, vp.IsType(ssi.MustParseURI("VerifiablePresentation")))
 		assert.True(t, vp.IsType(ssi.MustParseURI("CredentialManagerPresentation")))
+		assert.NotNil(t, vp.JWT())
+		assert.Equal(t, jwtPresentation, vp.Raw())
 		// Assert contained JWT VerifiableCredential was unmarshalled
 		assert.Len(t, vp.VerifiableCredential, 1)
 		vc := vp.VerifiableCredential[0]

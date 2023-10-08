@@ -55,6 +55,7 @@ func ParseVerifiablePresentation(raw string) (*VerifiablePresentation, error) {
 		var result VerifiablePresentation
 		err := json.Unmarshal([]byte(raw), &result)
 		if err == nil {
+			result.raw = raw
 			result.format = JSONLDPresentationProofFormat
 		}
 		return &result, err
@@ -114,6 +115,9 @@ func (vp VerifiablePresentation) Format() string {
 
 // JWT returns the JWT token if the presentation was parsed from a JWT.
 func (vp VerifiablePresentation) JWT() jwt.Token {
+	if vp.token == nil {
+		return nil
+	}
 	token, _ := vp.token.Clone()
 	return token
 }
