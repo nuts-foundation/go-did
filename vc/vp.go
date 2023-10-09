@@ -52,17 +52,28 @@ type VerifiablePresentation struct {
 func ParseVerifiablePresentation(raw string) (*VerifiablePresentation, error) {
 	if strings.HasPrefix(raw, "{") {
 		// Assume JSON-LD format
-		var result VerifiablePresentation
-		err := json.Unmarshal([]byte(raw), &result)
-		if err == nil {
-			result.raw = raw
-			result.format = JSONLDPresentationProofFormat
-		}
-		return &result, err
+		return parseJSONLDPresentation(raw)
 	} else {
 		// Assume JWT format
 		return parseJTWPresentation(raw)
 	}
+}
+
+func parseJSONLDPresentation(raw string) (*VerifiablePresentation, error) {
+	type Alias VerifiablePresentation
+	normalizedVC, err := marshal.NormalizeDocument([]byte(raw), pluralContext, marshal.Plural(typeKey), marshal.Plural(verifiableCredentialKey), marshal.Plural(proofKey))
+	if err != nil {
+		return nil, err
+	}
+	alias := Alias{}
+	err = json.Unmarshal(normalizedVC, &alias)
+	if err != nil {
+		return nil, err
+	}
+	alias.raw = raw
+	alias.format = JSONLDPresentationProofFormat
+	result := VerifiablePresentation(alias)
+	return &result, err
 }
 
 func parseJTWPresentation(raw string) (*VerifiablePresentation, error) {
@@ -145,9 +156,11 @@ func (vp VerifiablePresentation) Proofs() ([]Proof, error) {
 
 func (vp VerifiablePresentation) MarshalJSON() ([]byte, error) {
 	switch vp.format {
-	default:
-		fallthrough
+	case JWTPresentationProofFormat:
+		return json.Marshal(vp.raw)
 	case JSONLDPresentationProofFormat:
+		fallthrough
+	default:
 		type alias VerifiablePresentation
 		tmp := alias(vp)
 		if data, err := json.Marshal(tmp); err != nil {
@@ -155,25 +168,23 @@ func (vp VerifiablePresentation) MarshalJSON() ([]byte, error) {
 		} else {
 			return marshal.NormalizeDocument(data, pluralContext, marshal.Unplural(typeKey), marshal.Unplural(verifiableCredentialKey), marshal.Unplural(proofKey))
 		}
-	case JWTPresentationProofFormat:
-		return json.Marshal(vp.raw)
 	}
 }
 
 func (vp *VerifiablePresentation) UnmarshalJSON(b []byte) error {
-	type Alias VerifiablePresentation
-	normalizedVC, err := marshal.NormalizeDocument(b, pluralContext, marshal.Plural(typeKey), marshal.Plural(verifiableCredentialKey), marshal.Plural(proofKey))
-	if err != nil {
-		return err
+	var str string
+	if len(b) > 0 && b[0] == '"' {
+		if err := json.Unmarshal(b, &str); err != nil {
+			return err
+		}
+	} else {
+		str = string(b)
 	}
-	tmp := Alias{}
-	err = json.Unmarshal(normalizedVC, &tmp)
-	if err != nil {
-		return err
+	presentation, err := ParseVerifiablePresentation(str)
+	if err == nil {
+		*vp = *presentation
 	}
-	*vp = (VerifiablePresentation)(tmp)
-	vp.format = JSONLDPresentationProofFormat
-	return nil
+	return err
 }
 
 // UnmarshalProofValue unmarshalls the proof to the given proof type. Always pass a slice as target since there could be multiple proofs.

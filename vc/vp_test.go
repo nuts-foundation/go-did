@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	ssi "github.com/nuts-foundation/go-did"
 	"github.com/stretchr/testify/require"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -220,5 +221,15 @@ func TestParseVerifiablePresentation(t *testing.T) {
 		vc := vp.VerifiableCredential[0]
 		assert.Equal(t, JWTCredentialsProofFormat, vc.Format())
 		assert.Equal(t, "http://example.edu/credentials/3732", vc.ID.String())
+	})
+	t.Run("json.UnmarshalJSON for JWT-VP wrapped inside other document", func(t *testing.T) {
+		type Wrapper struct {
+			VP VerifiablePresentation `json:"vp"`
+		}
+		input := `{"vp":"` + strings.ReplaceAll(jwtPresentation, "\n", "") + `"}`
+		var expected Wrapper
+		err := json.Unmarshal([]byte(input), &expected)
+		require.NoError(t, err)
+		assert.Equal(t, JWTPresentationProofFormat, expected.VP.Format())
 	})
 }
