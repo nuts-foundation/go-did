@@ -425,6 +425,48 @@ func TestVerificationRelationship_UnmarshalJSON(t *testing.T) {
 	})
 }
 
+func TestNewVerificationMethod(t *testing.T) {
+	t.Run("Ed25519VerificationKey2018", func(t *testing.T) {
+		id, _ := ParseDID("did:example:123")
+		expectedKey, _, _ := ed25519.GenerateKey(rand.Reader)
+		vm, err := NewVerificationMethod(*id, ssi.ED25519VerificationKey2018, *id, expectedKey)
+		require.NoError(t, err)
+		assert.Equal(t, ssi.ED25519VerificationKey2018, vm.Type)
+		assert.NotEmpty(t, vm.PublicKeyMultibase)
+		assert.Empty(t, vm.PublicKeyBase58)
+		// Unmarshal, check it's equal to the input key
+		actualKey, err := vm.PublicKey()
+		require.NoError(t, err)
+		assert.Equal(t, expectedKey, actualKey)
+	})
+}
+
+func TestVerificationMethod_UnmarshalJSON(t *testing.T) {
+	t.Run("both publicKeyJWK and publicKeyMultibase present", func(t *testing.T) {
+		input, _ := json.Marshal(VerificationMethod{
+			ID:                 MustParseDIDURL("did:example:123#key-1"),
+			Controller:         MustParseDIDURL("did:example:123"),
+			PublicKeyJwk:       map[string]interface{}{"kty": "EC"},
+			PublicKeyMultibase: "foobar",
+		})
+		actual := VerificationMethod{}
+		err := json.Unmarshal(input, &actual)
+		assert.EqualError(t, err, "only one of publicKeyJWK, publicKeyBase58 and publicKeyMultibase can be present")
+	})
+	t.Run("all of publicKeyJWK, publicKeyMultibase and publicKeyBase58 are present", func(t *testing.T) {
+		input, _ := json.Marshal(VerificationMethod{
+			ID:                 MustParseDIDURL("did:example:123#key-1"),
+			Controller:         MustParseDIDURL("did:example:123"),
+			PublicKeyJwk:       map[string]interface{}{"kty": "EC"},
+			PublicKeyMultibase: "foobar",
+			PublicKeyBase58:    "foobar",
+		})
+		actual := VerificationMethod{}
+		err := json.Unmarshal(input, &actual)
+		assert.EqualError(t, err, "only one of publicKeyJWK, publicKeyBase58 and publicKeyMultibase can be present")
+	})
+}
+
 func TestService_UnmarshalJSON(t *testing.T) {
 	t.Run("ok", func(t *testing.T) {
 		actual := Service{}

@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/multiformats/go-multibase"
 
 	"github.com/nuts-foundation/go-did"
 
@@ -303,9 +304,11 @@ func (s Service) UnmarshalServiceEndpoint(target interface{}) error {
 
 // VerificationMethod represents a DID Verification Method as specified by the DID Core specification (https://www.w3.org/TR/did-core/#verification-methods).
 type VerificationMethod struct {
-	ID              DID                    `json:"id"`
-	Type            ssi.KeyType            `json:"type,omitempty"`
-	Controller      DID                    `json:"controller,omitempty"`
+	ID                 DID         `json:"id"`
+	Type               ssi.KeyType `json:"type,omitempty"`
+	Controller         DID         `json:"controller,omitempty"`
+	PublicKeyMultibase string      `json:"publicKeyMultibase,omitempty"`
+	// PublicKeyBase58 is deprecated and should not be used anymore. Use PublicKeyMultibase or PublicKeyJwk instead.
 	PublicKeyBase58 string                 `json:"publicKeyBase58,omitempty"`
 	PublicKeyJwk    map[string]interface{} `json:"publicKeyJwk,omitempty"`
 }
@@ -343,8 +346,11 @@ func NewVerificationMethod(id DID, keyType ssi.KeyType, controller DID, key cryp
 		if !ok {
 			return nil, errors.New("wrong key type")
 		}
-		encodedKey := base58.Encode(ed25519Key, base58.BitcoinAlphabet)
-		vm.PublicKeyBase58 = encodedKey
+		encodedKey, err := multibase.Encode(multibase.Base58BTC, ed25519Key)
+		if err != nil {
+			return nil, err
+		}
+		vm.PublicKeyMultibase = encodedKey
 	}
 
 	return vm, nil
@@ -367,9 +373,20 @@ func (v VerificationMethod) PublicKey() (crypto.PublicKey, error) {
 	var pubKey crypto.PublicKey
 	switch v.Type {
 	case ssi.ED25519VerificationKey2018:
-		keyBytes, err := base58.Decode(v.PublicKeyBase58, base58.BitcoinAlphabet)
-		if err != nil {
-			return nil, err
+		var keyBytes []byte
+		var err error
+		if v.PublicKeyMultibase != "" {
+			_, keyBytes, err = multibase.Decode(v.PublicKeyMultibase)
+			if err != nil {
+				return nil, fmt.Errorf("publicKeyMultibase decode error: %w", err)
+			}
+		} else if v.PublicKeyBase58 != "" {
+			keyBytes, err = base58.Decode(v.PublicKeyBase58, base58.BitcoinAlphabet)
+			if err != nil {
+				return nil, fmt.Errorf("publicKeyBase58 decode error: %w", err)
+			}
+		} else {
+			return nil, errors.New("expected either publicKeyMultibase or publicKeyBase58 to be set")
 		}
 		return ed25519.PublicKey(keyBytes), err
 	case ssi.JsonWebKey2020:
@@ -428,6 +445,20 @@ func (v *VerificationMethod) UnmarshalJSON(bytes []byte) error {
 	err := json.Unmarshal(bytes, &tmp)
 	if err != nil {
 		return err
+	}
+	// publicKeyJWK, publicKeyBase58 and publicKeyMultibase are all mutually exclusive
+	countPresent := 0
+	if len(tmp.PublicKeyJwk) > 0 {
+		countPresent++
+	}
+	if len(tmp.PublicKeyBase58) > 0 {
+		countPresent++
+	}
+	if len(tmp.PublicKeyMultibase) > 0 {
+		countPresent++
+	}
+	if countPresent > 1 {
+		return errors.New("only one of publicKeyJWK, publicKeyBase58 and publicKeyMultibase can be present")
 	}
 	*v = (VerificationMethod)(tmp)
 	return nil
