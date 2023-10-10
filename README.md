@@ -7,7 +7,20 @@
 
 A library to parse and generate W3C [DID Documents](https://www.w3.org/TR/did-core/) and W3C [Verifiable Credentials](https://www.w3.org/TR/vc-data-model/).
 
-## Example usage:
+## Example usage
+Note on parsing: in earlier versions, DID documents, credentials and presentations were parsed using `UnmarshalJSON`.
+Now, `ParseDocument()`, `ParseVerifiableCredential()` and `ParseVerifiablePresentation()` should be used instead: they better support VCs and VPs in JWT format.
+
+### Parsing a DID document
+```go
+didDoc, err := did.ParseDocument(didDocJson)
+if err != nil {
+    panic(err)
+}
+// do something with didDoc
+````
+
+### Creating a DID document
 Creation of a simple DID Document which is its own controller and contains an AssertionMethod.
 ```go
 didID, err := did.ParseDID("did:example:123")
@@ -29,18 +42,8 @@ doc.AddAssertionMethod(verificationMethod)
 
 didJson, _ := json.MarshalIndent(doc, "", "  ")
 fmt.Println(string(didJson))
-
-// Unmarshalling of a json did document:
-parsedDIDDoc := did.Document{}
-err = json.Unmarshal(didJson, &parsedDIDDoc)
-
-// It can return the key in the convenient lestrrat-go/jwx JWK
-parsedDIDDoc.AssertionMethod[0].JWK()
-
-// Or return a native crypto.PublicKey
-parsedDIDDoc.AssertionMethod[0].PublicKey()
-
 ```
+
 Outputs:
 ```json
 {
@@ -64,8 +67,11 @@ Outputs:
     }
   ]
 }
-
 ```
+
+### Parsing Verifiable Credentials and Verifiable Presentations
+The library supports parsing of Verifiable Credentials and Verifiable Presentations in JSON-LD, and JWT proof format.
+Use `ParseVerifiableCredential(raw string)` and `ParseVerifiablePresentation(raw string)`.
 
 ## Installation
 ```
@@ -73,5 +79,4 @@ go get github.com/nuts-foundation/go-did
 ```
 
 ## State of the library
-Currently, the library is under development. The api can change without notice.
-Checkout the issues and PRs to be informed about any development.
+We keep the API stable, breaking changes will only be introduced in new major versions.

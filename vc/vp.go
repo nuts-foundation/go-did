@@ -2,6 +2,9 @@ package vc
 
 import (
 	"encoding/json"
+	"fmt"
+	"github.com/lestrrat-go/jwx/jwt"
+	"strings"
 
 	ssi "github.com/nuts-foundation/go-did"
 	"github.com/nuts-foundation/go-did/internal/marshal"
@@ -14,6 +17,14 @@ const VerifiablePresentationType = "VerifiablePresentation"
 func VerifiablePresentationTypeV1URI() ssi.URI {
 	return ssi.MustParseURI(VerifiablePresentationType)
 }
+
+const (
+	// JSONLDPresentationProofFormat is the format for JSON-LD based presentations.
+	JSONLDPresentationProofFormat string = "ldp_vp"
+	// JWTPresentationProofFormat is the format for JWT based presentations.
+	// Note: various specs have not yet decided on the exact const (jwt_vp or jwt_vp_json, etc), so this is subject to change.
+	JWTPresentationProofFormat = "jwt_vp"
+)
 
 // VerifiablePresentation represents a presentation as defined by the Verifiable Credentials Data Model 1.0 specification (https://www.w3.org/TR/vc-data-model/).
 type VerifiablePresentation struct {
@@ -29,6 +40,102 @@ type VerifiablePresentation struct {
 	VerifiableCredential []VerifiableCredential `json:"verifiableCredential,omitempty"`
 	// Proof contains the cryptographic proof(s). It must be extracted using the Proofs method or UnmarshalProofValue method for non-generic proof fields.
 	Proof []interface{} `json:"proof,omitempty"`
+
+	format string
+	raw    string
+	token  jwt.Token
+}
+
+// ParseVerifiablePresentation parses a Verifiable Presentation from a string, which can be either in JSON-LD or JWT format.
+// If the format is JWT, the parsed token can be retrieved using JWT().
+// Note that it does not do any signature checking, or check that the signer of the VP is the subject of the VCs.
+func ParseVerifiablePresentation(raw string) (*VerifiablePresentation, error) {
+	if strings.HasPrefix(raw, "{") {
+		// Assume JSON-LD format
+		return parseJSONLDPresentation(raw)
+	} else {
+		// Assume JWT format
+		return parseJTWPresentation(raw)
+	}
+}
+
+func parseJSONLDPresentation(raw string) (*VerifiablePresentation, error) {
+	type Alias VerifiablePresentation
+	normalizedVC, err := marshal.NormalizeDocument([]byte(raw), pluralContext, marshal.Plural(typeKey), marshal.Plural(verifiableCredentialKey), marshal.Plural(proofKey))
+	if err != nil {
+		return nil, err
+	}
+	alias := Alias{}
+	err = json.Unmarshal(normalizedVC, &alias)
+	if err != nil {
+		return nil, err
+	}
+	alias.raw = raw
+	alias.format = JSONLDPresentationProofFormat
+	result := VerifiablePresentation(alias)
+	return &result, err
+}
+
+func parseJTWPresentation(raw string) (*VerifiablePresentation, error) {
+	token, err := jwt.Parse([]byte(raw))
+	if err != nil {
+		return nil, err
+	}
+	var result VerifiablePresentation
+	if innerVPInterf := token.PrivateClaims()["vp"]; innerVPInterf != nil {
+		innerVPJSON, _ := json.Marshal(innerVPInterf)
+		err = json.Unmarshal(innerVPJSON, &result)
+		if err != nil {
+			return nil, fmt.Errorf("invalid JWT 'vp' claim: %w", err)
+		}
+	}
+	// parse jti
+	if jti, err := parseURIClaim(token, jwt.JwtIDKey); err != nil {
+		return nil, err
+	} else if jti != nil {
+		result.ID = jti
+	}
+	// parse iss
+	if iss, err := parseURIClaim(token, jwt.IssuerKey); err != nil {
+		return nil, err
+	} else if iss != nil {
+		result.Holder = iss
+	}
+	// the other claims don't have a designated field in VerifiablePresentation and can be accessed through JWT()
+	result.format = JWTPresentationProofFormat
+	result.raw = raw
+	result.token = token
+	return &result, nil
+}
+
+func parseURIClaim(token jwt.Token, claim string) (*ssi.URI, error) {
+	if val, ok := token.Get(claim); ok {
+		if str, ok := val.(string); !ok {
+			return nil, fmt.Errorf("%s must be a string", claim)
+		} else {
+			return ssi.ParseURI(str)
+		}
+	}
+	return nil, nil
+}
+
+// Format returns the format of the presentation (e.g. jwt_vp or ldp_vp).
+func (vp VerifiablePresentation) Format() string {
+	return vp.format
+}
+
+// JWT returns the JWT token if the presentation was parsed from a JWT.
+func (vp VerifiablePresentation) JWT() jwt.Token {
+	if vp.token == nil {
+		return nil
+	}
+	token, _ := vp.token.Clone()
+	return token
+}
+
+// Raw returns the source of the presentation as it was parsed.
+func (vp VerifiablePresentation) Raw() string {
+	return vp.raw
 }
 
 // Proofs returns the basic proofs for this presentation. For specific proof contents, UnmarshalProofValue must be used.
@@ -48,28 +155,36 @@ func (vp VerifiablePresentation) Proofs() ([]Proof, error) {
 }
 
 func (vp VerifiablePresentation) MarshalJSON() ([]byte, error) {
-	type alias VerifiablePresentation
-	tmp := alias(vp)
-	if data, err := json.Marshal(tmp); err != nil {
-		return nil, err
-	} else {
-		return marshal.NormalizeDocument(data, pluralContext, marshal.Unplural(typeKey), marshal.Unplural(verifiableCredentialKey), marshal.Unplural(proofKey))
+	switch vp.format {
+	case JWTPresentationProofFormat:
+		return json.Marshal(vp.raw)
+	case JSONLDPresentationProofFormat:
+		fallthrough
+	default:
+		type alias VerifiablePresentation
+		tmp := alias(vp)
+		if data, err := json.Marshal(tmp); err != nil {
+			return nil, err
+		} else {
+			return marshal.NormalizeDocument(data, pluralContext, marshal.Unplural(typeKey), marshal.Unplural(verifiableCredentialKey), marshal.Unplural(proofKey))
+		}
 	}
 }
 
 func (vp *VerifiablePresentation) UnmarshalJSON(b []byte) error {
-	type Alias VerifiablePresentation
-	normalizedVC, err := marshal.NormalizeDocument(b, pluralContext, marshal.Plural(typeKey), marshal.Plural(verifiableCredentialKey), marshal.Plural(proofKey))
-	if err != nil {
-		return err
+	var str string
+	if len(b) > 0 && b[0] == '"' {
+		if err := json.Unmarshal(b, &str); err != nil {
+			return err
+		}
+	} else {
+		str = string(b)
 	}
-	tmp := Alias{}
-	err = json.Unmarshal(normalizedVC, &tmp)
-	if err != nil {
-		return err
+	presentation, err := ParseVerifiablePresentation(str)
+	if err == nil {
+		*vp = *presentation
 	}
-	*vp = (VerifiablePresentation)(tmp)
-	return nil
+	return err
 }
 
 // UnmarshalProofValue unmarshalls the proof to the given proof type. Always pass a slice as target since there could be multiple proofs.
