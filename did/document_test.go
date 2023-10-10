@@ -341,8 +341,7 @@ func TestRoundTripMarshalling(t *testing.T) {
 
 	for _, testCase := range testCases {
 		t.Run(testCase, func(t *testing.T) {
-			document := Document{}
-			err := json.Unmarshal(test.ReadTestFile("test/"+testCase+".json"), &document)
+			document, err := ParseDocument(string(test.ReadTestFile("test/" + testCase + ".json")))
 			if !assert.NoError(t, err) {
 				return
 			}

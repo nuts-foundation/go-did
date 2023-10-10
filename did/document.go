@@ -16,6 +16,39 @@ import (
 	"github.com/nuts-foundation/go-did/internal/marshal"
 )
 
+// ParseDocument parses a DID Document from a string.
+func ParseDocument(raw string) (*Document, error) {
+	type Alias Document
+	normalizedDoc, err := marshal.NormalizeDocument([]byte(raw), pluralContext, marshal.Plural(controllerKey))
+	if err != nil {
+		return nil, err
+	}
+	doc := Alias{}
+	err = json.Unmarshal(normalizedDoc, &doc)
+	if err != nil {
+		return nil, err
+	}
+	d := Document(doc)
+
+	const errMsg = "unable to resolve all '%s' references: %w"
+	if err = resolveVerificationRelationships(d.Authentication, d.VerificationMethod); err != nil {
+		return nil, fmt.Errorf(errMsg, authenticationKey, err)
+	}
+	if err = resolveVerificationRelationships(d.AssertionMethod, d.VerificationMethod); err != nil {
+		return nil, fmt.Errorf(errMsg, assertionMethodKey, err)
+	}
+	if err = resolveVerificationRelationships(d.KeyAgreement, d.VerificationMethod); err != nil {
+		return nil, fmt.Errorf(errMsg, keyAgreementKey, err)
+	}
+	if err = resolveVerificationRelationships(d.CapabilityInvocation, d.VerificationMethod); err != nil {
+		return nil, fmt.Errorf(errMsg, capabilityInvocationKey, err)
+	}
+	if err = resolveVerificationRelationships(d.CapabilityDelegation, d.VerificationMethod); err != nil {
+		return nil, fmt.Errorf(errMsg, capabilityDelegationKey, err)
+	}
+	return &d, nil
+}
+
 // Document represents a DID Document as specified by the DID Core specification (https://www.w3.org/TR/did-core/).
 type Document struct {
 	Context              []ssi.URI                 `json:"@context"`
@@ -186,34 +219,11 @@ func (d Document) MarshalJSON() ([]byte, error) {
 }
 
 func (d *Document) UnmarshalJSON(b []byte) error {
-	type Alias Document
-	normalizedDoc, err := marshal.NormalizeDocument(b, pluralContext, marshal.Plural(controllerKey))
+	document, err := ParseDocument(string(b))
 	if err != nil {
 		return err
 	}
-	doc := Alias{}
-	err = json.Unmarshal(normalizedDoc, &doc)
-	if err != nil {
-		return err
-	}
-	*d = (Document)(doc)
-
-	const errMsg = "unable to resolve all '%s' references: %w"
-	if err = resolveVerificationRelationships(d.Authentication, d.VerificationMethod); err != nil {
-		return fmt.Errorf(errMsg, authenticationKey, err)
-	}
-	if err = resolveVerificationRelationships(d.AssertionMethod, d.VerificationMethod); err != nil {
-		return fmt.Errorf(errMsg, assertionMethodKey, err)
-	}
-	if err = resolveVerificationRelationships(d.KeyAgreement, d.VerificationMethod); err != nil {
-		return fmt.Errorf(errMsg, keyAgreementKey, err)
-	}
-	if err = resolveVerificationRelationships(d.CapabilityInvocation, d.VerificationMethod); err != nil {
-		return fmt.Errorf(errMsg, capabilityInvocationKey, err)
-	}
-	if err = resolveVerificationRelationships(d.CapabilityDelegation, d.VerificationMethod); err != nil {
-		return fmt.Errorf(errMsg, capabilityDelegationKey, err)
-	}
+	*d = *document
 	return nil
 }
 

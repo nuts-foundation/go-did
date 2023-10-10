@@ -8,11 +8,12 @@
 A library to parse and generate W3C [DID Documents](https://www.w3.org/TR/did-core/) and W3C [Verifiable Credentials](https://www.w3.org/TR/vc-data-model/).
 
 ## Example usage
+Note on parsing: in earlier versions, DID documents, credentials and presentations were parsed using `UnmarshalJSON`.
+Now, `ParseDocument()`, `ParseVerifiableCredential()` and `ParseVerifiablePresentation()` should be used instead: they better support VCs and VPs in JWT format.
 
 ### Parsing a DID document
 ```go
-didDoc := did.Document{}
-err := json.Unmarshal([]byte(didDocJson), &didDoc)
+didDoc, err := did.ParseDocument(didDocJson)
 if err != nil {
     panic(err)
 }
@@ -70,7 +71,7 @@ Outputs:
 
 ### Parsing Verifiable Credentials and Verifiable Presentations
 The library supports parsing of Verifiable Credentials and Verifiable Presentations in JSON-LD, and JWT proof format.
-Use `ParseVerifiableCredential(raw string)` and `ParseVerifiablePresentation(raw string)` for both.
+Use `ParseVerifiableCredential(raw string)` and `ParseVerifiablePresentation(raw string)`.
 
 ## Installation
 ```
