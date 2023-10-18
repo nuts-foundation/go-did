@@ -1,7 +1,12 @@
 package vc
 
 import (
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
 	"encoding/json"
+	"github.com/lestrrat-go/jwx/jwa"
+	"github.com/lestrrat-go/jwx/jwt"
 	ssi "github.com/nuts-foundation/go-did"
 	"github.com/stretchr/testify/require"
 	"strings"
@@ -49,6 +54,13 @@ func TestVerifiableCredential_JSONMarshalling(t *testing.T) {
 		marshalled, err := json.Marshal(input)
 		require.NoError(t, err)
 		assert.True(t, strings.HasPrefix(string(marshalled), "{"))
+
+		t.Run("marshal empty VC", func(t *testing.T) {
+			input := VerifiableCredential{}
+			marshalled, err := json.Marshal(input)
+			require.NoError(t, err)
+			assert.Equal(t, "{}", string(marshalled))
+		})
 	})
 	t.Run("JWT", func(t *testing.T) {
 		input := VerifiableCredential{}
@@ -88,6 +100,18 @@ func TestParseVerifiableCredential(t *testing.T) {
 		assert.Equal(t, []ssi.URI{ssi.MustParseURI("VerifiableCredential"), ssi.MustParseURI("UniversityDegreeCredential")}, input.Type)
 		assert.Len(t, input.CredentialSubject, 1)
 		assert.NotNil(t, input.CredentialSubject[0].(map[string]interface{})["degree"])
+	})
+	t.Run("JWT without `exp` and `nbf` claim", func(t *testing.T) {
+		token := jwt.New()
+		require.NoError(t, token.Set("vc", map[string]interface{}{}))
+		keyPair, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+		tokenBytes, err := jwt.Sign(token, jwa.ES256, keyPair)
+		require.NoError(t, err)
+		credential, err := ParseVerifiableCredential(string(tokenBytes))
+		require.NoError(t, err)
+		assert.Equal(t, JWTCredentialProofFormat, credential.Format())
+		assert.Nil(t, credential.ExpirationDate)
+		assert.Empty(t, credential.IssuanceDate)
 	})
 }
 

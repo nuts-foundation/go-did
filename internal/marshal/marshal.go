@@ -70,3 +70,12 @@ func PluralValueOrMap(key string) Normalizer {
 		}
 	}
 }
+
+// PruneString returns a Normalizer that removes keys that have a string value match a given string.
+func PruneString(key string, match string) Normalizer {
+	return func(m map[string]interface{}) {
+		if value, ok := m[key]; ok && value == match {
+			delete(m, key)
+		}
+	}
+}

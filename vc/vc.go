@@ -74,8 +74,10 @@ func parseJWTCredential(raw string) (*VerifiableCredential, error) {
 		}
 	}
 	// parse exp
-	exp := token.Expiration()
-	result.ExpirationDate = &exp
+	if _, ok := token.Get("exp"); ok {
+		exp := token.Expiration()
+		result.ExpirationDate = &exp
+	}
 	// parse iss
 	if iss, err := parseURIClaim(token, jwt.IssuerKey); err != nil {
 		return nil, err
@@ -125,11 +127,11 @@ func parseJSONLDCredential(raw string) (*VerifiableCredential, error) {
 // VerifiableCredential represents a credential as defined by the Verifiable Credentials Data Model 1.0 specification (https://www.w3.org/TR/vc-data-model/).
 type VerifiableCredential struct {
 	// Context defines the json-ld context to dereference the URIs
-	Context []ssi.URI `json:"@context"`
+	Context []ssi.URI `json:"@context,omitempty"`
 	// ID is an unique identifier for the credential. It is optional
 	ID *ssi.URI `json:"id,omitempty"`
 	// Type holds multiple types for a credential. A credential must always have the 'VerifiableCredential' type.
-	Type []ssi.URI `json:"type"`
+	Type []ssi.URI `json:"type,omitempty"`
 	// Issuer refers to the party that issued the credential
 	Issuer ssi.URI `json:"issuer"`
 	// IssuanceDate is a rfc3339 formatted datetime.
@@ -139,9 +141,9 @@ type VerifiableCredential struct {
 	// CredentialStatus holds information on how the credential can be revoked. It is optional
 	CredentialStatus *CredentialStatus `json:"credentialStatus,omitempty"`
 	// CredentialSubject holds the actual data for the credential. It must be extracted using the UnmarshalCredentialSubject method and a custom type.
-	CredentialSubject []interface{} `json:"credentialSubject"`
+	CredentialSubject []interface{} `json:"credentialSubject,omitempty"`
 	// Proof contains the cryptographic proof(s). It must be extracted using the Proofs method or UnmarshalProofValue method for non-generic proof fields.
-	Proof []interface{} `json:"proof"`
+	Proof []interface{} `json:"proof,omitempty"`
 
 	format string
 	raw    string
@@ -205,7 +207,12 @@ func (vc VerifiableCredential) MarshalJSON() ([]byte, error) {
 	if data, err := json.Marshal(tmp); err != nil {
 		return nil, err
 	} else {
-		return marshal.NormalizeDocument(data, pluralContext, marshal.Unplural(typeKey), marshal.Unplural(credentialSubjectKey), marshal.Unplural(proofKey))
+		return marshal.NormalizeDocument(data, pluralContext, marshal.Unplural(typeKey), marshal.Unplural(credentialSubjectKey), marshal.Unplural(proofKey),
+			// Do not marshal empty issuer fields
+			marshal.PruneString("issuer", ""),
+			// Do not marshal "zero-ed" issuanceDate fields
+			marshal.PruneString("issuanceDate", "0001-01-01T00:00:00Z"),
+		)
 	}
 }
 
