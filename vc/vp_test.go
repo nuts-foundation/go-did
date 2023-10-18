@@ -219,7 +219,7 @@ func TestParseVerifiablePresentation(t *testing.T) {
 		// Assert contained JWT VerifiableCredential was unmarshalled
 		assert.Len(t, vp.VerifiableCredential, 1)
 		vc := vp.VerifiableCredential[0]
-		assert.Equal(t, JWTCredentialsProofFormat, vc.Format())
+		assert.Equal(t, JWTCredentialProofFormat, vc.Format())
 		assert.Equal(t, "http://example.edu/credentials/3732", vc.ID.String())
 	})
 	t.Run("json.UnmarshalJSON for JWT-VP wrapped inside other document", func(t *testing.T) {

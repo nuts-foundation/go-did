@@ -37,9 +37,9 @@ func VCContextV1URI() ssi.URI {
 const (
 	// JSONLDCredentialProofFormat is the format for JSON-LD based credentials.
 	JSONLDCredentialProofFormat string = "ldp_vc"
-	// JWTCredentialsProofFormat is the format for JWT based credentials.
+	// JWTCredentialProofFormat is the format for JWT based credentials.
 	// Note: various specs have not yet decided on the exact const (jwt_vc or jwt_vc_json, etc), so this is subject to change.
-	JWTCredentialsProofFormat = "jwt_vc"
+	JWTCredentialProofFormat = "jwt_vc"
 )
 
 var errCredentialSubjectWithoutID = errors.New("credential subjects have no ID")
@@ -99,7 +99,7 @@ func parseJWTCredential(raw string) (*VerifiableCredential, error) {
 	} else if jti != nil {
 		result.ID = jti
 	}
-	result.format = JWTCredentialsProofFormat
+	result.format = JWTCredentialProofFormat
 	result.raw = raw
 	result.token = token
 	return &result, nil
@@ -190,6 +190,16 @@ func (vc VerifiableCredential) Proofs() ([]Proof, error) {
 }
 
 func (vc VerifiableCredential) MarshalJSON() ([]byte, error) {
+	if vc.raw != "" {
+		// Credential instance created through ParseVerifiableCredential()
+		if vc.format == JWTCredentialProofFormat {
+			// Marshal as JSON string
+			return json.Marshal(vc.raw)
+		}
+		// JSON-LD, already in JSON format so return as-is
+		return []byte(vc.raw), nil
+	}
+	// Must be a (new) JSON-LD credential (library does not support creating JWT VCs)
 	type alias VerifiableCredential
 	tmp := alias(vc)
 	if data, err := json.Marshal(tmp); err != nil {

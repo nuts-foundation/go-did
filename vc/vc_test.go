@@ -27,7 +27,9 @@ BND3LDTn9H7FQokEsUEi8jKwXhGvoN3JtRa51xrNDgXDb0cq1UTYB-rK4Ft9YVmR1NI_ZOF8oGc_7wAp
 txJy6M1-lD7a5HTzanYTWBPAUHDZGyGKXdJw-W_x0IWChBzI8t3kpG253fg6V3tPgHeKXE94fz_QpYfg
 --7kLsyBAfQGbg`
 
-func TestVerifiableCredential_UnmarshalJSON(t *testing.T) {
+// TestVerifiableCredential_JSONMarshalling tests JSON marshalling of VerifiableCredential.
+// Credentials in JSON-LD format are marshalled JSON object, while JWT credentials are marshalled as JSON string.
+func TestVerifiableCredential_JSONMarshalling(t *testing.T) {
 	t.Run("JSON-LD", func(t *testing.T) {
 		input := VerifiableCredential{}
 		raw := `{
@@ -43,6 +45,10 @@ func TestVerifiableCredential_UnmarshalJSON(t *testing.T) {
 		assert.Equal(t, JSONLDCredentialProofFormat, input.Format())
 		assert.Equal(t, raw, input.Raw())
 		assert.Nil(t, input.JWT())
+		// Should marshal into JSON object
+		marshalled, err := json.Marshal(input)
+		require.NoError(t, err)
+		assert.True(t, strings.HasPrefix(string(marshalled), "{"))
 	})
 	t.Run("JWT", func(t *testing.T) {
 		input := VerifiableCredential{}
@@ -52,9 +58,13 @@ func TestVerifiableCredential_UnmarshalJSON(t *testing.T) {
 		assert.Equal(t, []ssi.URI{ssi.MustParseURI("VerifiableCredential"), ssi.MustParseURI("UniversityDegreeCredential")}, input.Type)
 		assert.Len(t, input.CredentialSubject, 1)
 		assert.NotNil(t, input.CredentialSubject[0].(map[string]interface{})["degree"])
-		assert.Equal(t, JWTCredentialsProofFormat, input.Format())
+		assert.Equal(t, JWTCredentialProofFormat, input.Format())
 		assert.Equal(t, raw, input.Raw())
 		assert.NotNil(t, input.JWT())
+		// Should marshal into JSON string
+		marshalled, err := json.Marshal(input)
+		require.NoError(t, err)
+		assert.JSONEq(t, `"`+raw+`"`, string(marshalled))
 	})
 }
 
