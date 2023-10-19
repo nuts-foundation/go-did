@@ -1,6 +1,7 @@
 package vc
 
 import (
+	"context"
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
@@ -8,9 +9,11 @@ import (
 	"github.com/lestrrat-go/jwx/jwa"
 	"github.com/lestrrat-go/jwx/jwt"
 	ssi "github.com/nuts-foundation/go-did"
+	"github.com/nuts-foundation/go-did/did"
 	"github.com/stretchr/testify/require"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -59,7 +62,7 @@ func TestVerifiableCredential_JSONMarshalling(t *testing.T) {
 			input := VerifiableCredential{}
 			marshalled, err := json.Marshal(input)
 			require.NoError(t, err)
-			assert.Equal(t, "{}", string(marshalled))
+			assert.Equal(t, "{\"@context\":null,\"credentialSubject\":null,\"issuanceDate\":\"0001-01-01T00:00:00Z\",\"issuer\":\"\",\"proof\":null,\"type\":null}", string(marshalled))
 		})
 	})
 	t.Run("JWT", func(t *testing.T) {
@@ -313,5 +316,66 @@ func TestVerifiableCredential_SubjectDID(t *testing.T) {
 		_, err := input.SubjectDID()
 
 		assert.EqualError(t, err, "unable to get subject DID from VC: invalid DID")
+	})
+}
+
+func TestCreateJWTVerifiableCredential(t *testing.T) {
+	issuerDID := did.MustParseDID("did:example:issuer")
+	subjectDID := did.MustParseDID("did:example:subject")
+	credentialID := ssi.MustParseURI(issuerDID.String() + "#1")
+	issuanceDate := time.Date(2050, 1, 1, 0, 0, 0, 0, time.UTC)
+	expirationDate := issuanceDate.AddDate(0, 0, 10)
+	template := VerifiableCredential{
+		ID: &credentialID,
+		Context: []ssi.URI{
+			VCContextV1URI(),
+		},
+		Type: []ssi.URI{
+			VerifiableCredentialTypeV1URI(),
+			ssi.MustParseURI("https://example.com/custom"),
+		},
+		IssuanceDate:   issuanceDate,
+		ExpirationDate: &expirationDate,
+		CredentialSubject: []interface{}{
+			map[string]interface{}{
+				"id": subjectDID.String(),
+			},
+		},
+		Issuer: issuerDID.URI(),
+	}
+	ctx := context.Background()
+	t.Run("all properties", func(t *testing.T) {
+		var claims map[string]interface{}
+		var headers map[string]interface{}
+		_, err := CreateJWTVerifiableCredential(ctx, template, func(_ context.Context, c map[string]interface{}, h map[string]interface{}) (string, error) {
+			claims = c
+			headers = h
+			return jwtCredential, nil
+		})
+		assert.NoError(t, err)
+		assert.Equal(t, issuerDID.String(), claims[jwt.IssuerKey])
+		assert.Equal(t, subjectDID.String(), claims[jwt.SubjectKey])
+		assert.Equal(t, template.ID.String(), claims[jwt.JwtIDKey])
+		assert.Equal(t, issuanceDate, claims[jwt.NotBeforeKey])
+		assert.Equal(t, expirationDate, claims[jwt.ExpirationKey])
+		assert.Equal(t, map[string]interface{}{
+			"credentialSubject": template.CredentialSubject,
+			"@context":          template.Context,
+			"type":              template.Type,
+		}, claims["vc"])
+		assert.Equal(t, map[string]interface{}{"typ": "JWT"}, headers)
+	})
+	t.Run("only mandatory properties", func(t *testing.T) {
+		minimumTemplate := template
+		minimumTemplate.ExpirationDate = nil
+		minimumTemplate.ID = nil
+		var claims map[string]interface{}
+		_, err := CreateJWTVerifiableCredential(ctx, minimumTemplate, func(_ context.Context, c map[string]interface{}, _ map[string]interface{}) (string, error) {
+			claims = c
+			return jwtCredential, nil
+		})
+		assert.NoError(t, err)
+		assert.Nil(t, claims[jwt.ExpirationKey])
+		assert.Nil(t, claims[jwt.JwtIDKey])
 	})
 }

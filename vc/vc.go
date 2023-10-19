@@ -1,9 +1,11 @@
 package vc
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/lestrrat-go/jwx/jws"
 	"github.com/lestrrat-go/jwx/jwt"
 	"github.com/nuts-foundation/go-did/did"
 	"strings"
@@ -127,11 +129,11 @@ func parseJSONLDCredential(raw string) (*VerifiableCredential, error) {
 // VerifiableCredential represents a credential as defined by the Verifiable Credentials Data Model 1.0 specification (https://www.w3.org/TR/vc-data-model/).
 type VerifiableCredential struct {
 	// Context defines the json-ld context to dereference the URIs
-	Context []ssi.URI `json:"@context,omitempty"`
+	Context []ssi.URI `json:"@context"`
 	// ID is an unique identifier for the credential. It is optional
 	ID *ssi.URI `json:"id,omitempty"`
 	// Type holds multiple types for a credential. A credential must always have the 'VerifiableCredential' type.
-	Type []ssi.URI `json:"type,omitempty"`
+	Type []ssi.URI `json:"type"`
 	// Issuer refers to the party that issued the credential
 	Issuer ssi.URI `json:"issuer"`
 	// IssuanceDate is a rfc3339 formatted datetime.
@@ -141,9 +143,9 @@ type VerifiableCredential struct {
 	// CredentialStatus holds information on how the credential can be revoked. It is optional
 	CredentialStatus *CredentialStatus `json:"credentialStatus,omitempty"`
 	// CredentialSubject holds the actual data for the credential. It must be extracted using the UnmarshalCredentialSubject method and a custom type.
-	CredentialSubject []interface{} `json:"credentialSubject,omitempty"`
+	CredentialSubject []interface{} `json:"credentialSubject"`
 	// Proof contains the cryptographic proof(s). It must be extracted using the Proofs method or UnmarshalProofValue method for non-generic proof fields.
-	Proof []interface{} `json:"proof,omitempty"`
+	Proof []interface{} `json:"proof"`
 
 	format string
 	raw    string
@@ -192,27 +194,17 @@ func (vc VerifiableCredential) Proofs() ([]Proof, error) {
 }
 
 func (vc VerifiableCredential) MarshalJSON() ([]byte, error) {
-	if vc.raw != "" {
-		// Credential instance created through ParseVerifiableCredential()
-		if vc.format == JWTCredentialProofFormat {
-			// Marshal as JSON string
-			return json.Marshal(vc.raw)
-		}
-		// JSON-LD, already in JSON format so return as-is
-		return []byte(vc.raw), nil
+	if vc.format == JWTCredentialProofFormat {
+		// Marshal as JSON string
+		return json.Marshal(vc.raw) // raw is only set by the parse function
 	}
-	// Must be a (new) JSON-LD credential (library does not support creating JWT VCs)
+	// Must be a JSON-LD credential
 	type alias VerifiableCredential
 	tmp := alias(vc)
 	if data, err := json.Marshal(tmp); err != nil {
 		return nil, err
 	} else {
-		return marshal.NormalizeDocument(data, pluralContext, marshal.Unplural(typeKey), marshal.Unplural(credentialSubjectKey), marshal.Unplural(proofKey),
-			// Do not marshal empty issuer fields
-			marshal.PruneString("issuer", ""),
-			// Do not marshal "zero-ed" issuanceDate fields
-			marshal.PruneString("issuanceDate", "0001-01-01T00:00:00Z"),
-		)
+		return marshal.NormalizeDocument(data, pluralContext, marshal.Unplural(typeKey), marshal.Unplural(credentialSubjectKey), marshal.Unplural(proofKey))
 	}
 }
 
@@ -303,4 +295,39 @@ func (vc VerifiableCredential) ContainsContext(context ssi.URI) bool {
 	}
 
 	return false
+}
+
+type JWTSigner func(ctx context.Context, claims map[string]interface{}, headers map[string]interface{}) (string, error)
+
+// CreateJWTVerifiableCredential creates a JWT Verifiable Credential from the given credential template.
+// For signing the actual JWT it calls the given signer.
+func CreateJWTVerifiableCredential(ctx context.Context, template VerifiableCredential, signer JWTSigner) (*VerifiableCredential, error) {
+	subjectDID, err := template.SubjectDID()
+	if err != nil {
+		return nil, err
+	}
+	headers := map[string]interface{}{
+		jws.TypeKey: "JWT",
+	}
+	claims := map[string]interface{}{
+		jwt.NotBeforeKey: template.IssuanceDate,
+		jwt.IssuerKey:    template.Issuer.String(),
+		jwt.SubjectKey:   subjectDID.String(),
+		"vc": map[string]interface{}{
+			"@context":          template.Context,
+			"type":              template.Type,
+			"credentialSubject": template.CredentialSubject,
+		},
+	}
+	if template.ID != nil {
+		claims[jwt.JwtIDKey] = template.ID.String()
+	}
+	if template.ExpirationDate != nil {
+		claims[jwt.ExpirationKey] = *template.ExpirationDate
+	}
+	token, err := signer(ctx, claims, headers)
+	if err != nil {
+		return nil, fmt.Errorf("unable to sign JWT credential: %w", err)
+	}
+	return ParseVerifiableCredential(token)
 }
