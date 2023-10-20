@@ -302,7 +302,8 @@ func (vc VerifiableCredential) ContainsContext(context ssi.URI) bool {
 type JWTSigner func(ctx context.Context, claims map[string]interface{}, headers map[string]interface{}) (string, error)
 
 // CreateJWTVerifiableCredential creates a JWT Verifiable Credential from the given credential template.
-// For signing the actual JWT it calls the given signer.
+// For signing the actual JWT it calls the given signer, which must return the created JWT in string format.
+// Note: the signer is responsible for adding the right key claims (e.g. `kid`).
 func CreateJWTVerifiableCredential(ctx context.Context, template VerifiableCredential, signer JWTSigner) (*VerifiableCredential, error) {
 	subjectDID, err := template.SubjectDID()
 	if err != nil {
@@ -331,5 +332,5 @@ func CreateJWTVerifiableCredential(ctx context.Context, template VerifiableCrede
 	if err != nil {
 		return nil, fmt.Errorf("unable to sign JWT credential: %w", err)
 	}
-	return ParseVerifiableCredential(token)
+	return parseJWTCredential(token)
 }
