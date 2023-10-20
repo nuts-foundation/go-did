@@ -155,19 +155,21 @@ func (vp VerifiablePresentation) Proofs() ([]Proof, error) {
 }
 
 func (vp VerifiablePresentation) MarshalJSON() ([]byte, error) {
-	switch vp.format {
-	case JWTPresentationProofFormat:
-		return json.Marshal(vp.raw)
-	case JSONLDPresentationProofFormat:
-		fallthrough
-	default:
-		type alias VerifiablePresentation
-		tmp := alias(vp)
-		if data, err := json.Marshal(tmp); err != nil {
-			return nil, err
-		} else {
-			return marshal.NormalizeDocument(data, pluralContext, marshal.Unplural(typeKey), marshal.Unplural(verifiableCredentialKey), marshal.Unplural(proofKey))
+	if vp.raw != "" {
+		// Presentation instance created through ParseVerifiablePresentation()
+		if vp.format == JWTPresentationProofFormat {
+			// Marshal as JSON string
+			return json.Marshal(vp.raw)
 		}
+		// JSON-LD, already in JSON format so return as-is
+		return []byte(vp.raw), nil
+	}
+	type alias VerifiablePresentation
+	tmp := alias(vp)
+	if data, err := json.Marshal(tmp); err != nil {
+		return nil, err
+	} else {
+		return marshal.NormalizeDocument(data, pluralContext, marshal.Unplural(typeKey), marshal.Unplural(verifiableCredentialKey), marshal.Unplural(proofKey))
 	}
 }
 

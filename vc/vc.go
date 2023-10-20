@@ -1,9 +1,11 @@
 package vc
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/lestrrat-go/jwx/jws"
 	"github.com/lestrrat-go/jwx/jwt"
 	"github.com/nuts-foundation/go-did/did"
 	"strings"
@@ -37,9 +39,9 @@ func VCContextV1URI() ssi.URI {
 const (
 	// JSONLDCredentialProofFormat is the format for JSON-LD based credentials.
 	JSONLDCredentialProofFormat string = "ldp_vc"
-	// JWTCredentialsProofFormat is the format for JWT based credentials.
+	// JWTCredentialProofFormat is the format for JWT based credentials.
 	// Note: various specs have not yet decided on the exact const (jwt_vc or jwt_vc_json, etc), so this is subject to change.
-	JWTCredentialsProofFormat = "jwt_vc"
+	JWTCredentialProofFormat = "jwt_vc"
 )
 
 var errCredentialSubjectWithoutID = errors.New("credential subjects have no ID")
@@ -74,8 +76,10 @@ func parseJWTCredential(raw string) (*VerifiableCredential, error) {
 		}
 	}
 	// parse exp
-	exp := token.Expiration()
-	result.ExpirationDate = &exp
+	if _, ok := token.Get(jwt.ExpirationKey); ok {
+		exp := token.Expiration()
+		result.ExpirationDate = &exp
+	}
 	// parse iss
 	if iss, err := parseURIClaim(token, jwt.IssuerKey); err != nil {
 		return nil, err
@@ -83,7 +87,9 @@ func parseJWTCredential(raw string) (*VerifiableCredential, error) {
 		result.Issuer = *iss
 	}
 	// parse nbf
-	result.IssuanceDate = token.NotBefore()
+	if _, ok := token.Get(jwt.NotBeforeKey); ok {
+		result.IssuanceDate = token.NotBefore()
+	}
 	// parse sub
 	if token.Subject() != "" {
 		for _, credentialSubjectInterf := range result.CredentialSubject {
@@ -99,7 +105,7 @@ func parseJWTCredential(raw string) (*VerifiableCredential, error) {
 	} else if jti != nil {
 		result.ID = jti
 	}
-	result.format = JWTCredentialsProofFormat
+	result.format = JWTCredentialProofFormat
 	result.raw = raw
 	result.token = token
 	return &result, nil
@@ -190,6 +196,11 @@ func (vc VerifiableCredential) Proofs() ([]Proof, error) {
 }
 
 func (vc VerifiableCredential) MarshalJSON() ([]byte, error) {
+	if vc.format == JWTCredentialProofFormat {
+		// Marshal as JSON string
+		return json.Marshal(vc.raw) // raw is only set by the parse function
+	}
+	// Must be a JSON-LD credential
 	type alias VerifiableCredential
 	tmp := alias(vc)
 	if data, err := json.Marshal(tmp); err != nil {
@@ -286,4 +297,40 @@ func (vc VerifiableCredential) ContainsContext(context ssi.URI) bool {
 	}
 
 	return false
+}
+
+type JWTSigner func(ctx context.Context, claims map[string]interface{}, headers map[string]interface{}) (string, error)
+
+// CreateJWTVerifiableCredential creates a JWT Verifiable Credential from the given credential template.
+// For signing the actual JWT it calls the given signer, which must return the created JWT in string format.
+// Note: the signer is responsible for adding the right key claims (e.g. `kid`).
+func CreateJWTVerifiableCredential(ctx context.Context, template VerifiableCredential, signer JWTSigner) (*VerifiableCredential, error) {
+	subjectDID, err := template.SubjectDID()
+	if err != nil {
+		return nil, err
+	}
+	headers := map[string]interface{}{
+		jws.TypeKey: "JWT",
+	}
+	claims := map[string]interface{}{
+		jwt.NotBeforeKey: template.IssuanceDate,
+		jwt.IssuerKey:    template.Issuer.String(),
+		jwt.SubjectKey:   subjectDID.String(),
+		"vc": map[string]interface{}{
+			"@context":          template.Context,
+			"type":              template.Type,
+			"credentialSubject": template.CredentialSubject,
+		},
+	}
+	if template.ID != nil {
+		claims[jwt.JwtIDKey] = template.ID.String()
+	}
+	if template.ExpirationDate != nil {
+		claims[jwt.ExpirationKey] = *template.ExpirationDate
+	}
+	token, err := signer(ctx, claims, headers)
+	if err != nil {
+		return nil, fmt.Errorf("unable to sign JWT credential: %w", err)
+	}
+	return parseJWTCredential(token)
 }
