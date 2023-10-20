@@ -76,7 +76,7 @@ func parseJWTCredential(raw string) (*VerifiableCredential, error) {
 		}
 	}
 	// parse exp
-	if _, ok := token.Get("exp"); ok {
+	if _, ok := token.Get(jwt.ExpirationKey); ok {
 		exp := token.Expiration()
 		result.ExpirationDate = &exp
 	}
@@ -87,7 +87,9 @@ func parseJWTCredential(raw string) (*VerifiableCredential, error) {
 		result.Issuer = *iss
 	}
 	// parse nbf
-	result.IssuanceDate = token.NotBefore()
+	if _, ok := token.Get(jwt.NotBeforeKey); ok {
+		result.IssuanceDate = token.NotBefore()
+	}
 	// parse sub
 	if token.Subject() != "" {
 		for _, credentialSubjectInterf := range result.CredentialSubject {
