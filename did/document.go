@@ -1,13 +1,14 @@
 package did
 
 import (
+	"context"
 	"crypto"
 	"crypto/ed25519"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/lestrrat-go/jwx/jwa"
 	"github.com/multiformats/go-multibase"
-
 	"github.com/nuts-foundation/go-did"
 
 	"github.com/lestrrat-go/jwx/jwk"
@@ -15,6 +16,9 @@ import (
 
 	"github.com/nuts-foundation/go-did/internal/marshal"
 )
+
+// lestrrat-go/jwx requires secp256k1 support to be enabled compile-time
+var errP256k1NotSupported = errors.New("secp256k1 support is not enabled")
 
 // ParseDocument parses a DID Document from a string.
 func ParseDocument(raw string) (*Document, error) {
@@ -351,6 +355,20 @@ func NewVerificationMethod(id DID, keyType ssi.KeyType, controller DID, key cryp
 
 		vm.PublicKeyJwk = keyAsMap
 	}
+	if keyType == ssi.ECDSASECP256K1VerificationKey2019 {
+		if !secp256k1Supported() {
+			return nil, errP256k1NotSupported
+		}
+		keyAsJWK, err := jwk.New(key)
+		if err != nil {
+			return nil, err
+		}
+		jwkAsMap, err := keyAsJWK.AsMap(context.Background())
+		if err != nil {
+			return nil, err
+		}
+		vm.PublicKeyJwk = jwkAsMap
+	}
 	if keyType == ssi.ED25519VerificationKey2018 {
 		ed25519Key, ok := key.(ed25519.PublicKey)
 		if !ok {
@@ -399,6 +417,14 @@ func (v VerificationMethod) PublicKey() (crypto.PublicKey, error) {
 			return nil, errors.New("expected either publicKeyMultibase or publicKeyBase58 to be set")
 		}
 		return ed25519.PublicKey(keyBytes), err
+	case ssi.ECDSASECP256K1VerificationKey2019:
+		if !secp256k1Supported() {
+			return nil, errP256k1NotSupported
+		}
+		if v.PublicKeyJwk == nil {
+			return nil, errors.New("missing publicKeyJwk")
+		}
+		fallthrough
 	case ssi.JsonWebKey2020:
 		keyAsJWK, err := v.JWK()
 		if err != nil {
@@ -496,4 +522,13 @@ func resolveVerificationRelationship(reference DID, methods []*VerificationMetho
 		}
 	}
 	return nil
+}
+
+func secp256k1Supported() bool {
+	for _, alg := range jwa.EllipticCurveAlgorithms() {
+		if alg.String() == "secp256k1" {
+			return true
+		}
+	}
+	return false
 }
