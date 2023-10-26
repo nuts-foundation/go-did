@@ -6,6 +6,7 @@ import (
 	"crypto/elliptic"
 	"crypto/rand"
 	"encoding/json"
+	"fmt"
 	"github.com/decred/dcrd/dcrec/secp256k1/v4"
 	ssi "github.com/nuts-foundation/go-did"
 	"github.com/stretchr/testify/require"
@@ -110,11 +111,11 @@ func Test_Document(t *testing.T) {
 	})
 
 	t.Run("it can add assertionMethods with json web key", func(t *testing.T) {
-		id := actual.ID
-		id.Fragment = "added-assertion-method-1"
+		keyID := DIDURL{DID: actual.ID}
+		keyID.Fragment = "added-assertion-method-1"
 
 		keyPair, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
-		vm, err := NewVerificationMethod(id, ssi.JsonWebKey2020, actual.ID, keyPair.PublicKey)
+		vm, err := NewVerificationMethod(keyID, ssi.JsonWebKey2020, actual.ID, keyPair.PublicKey)
 		if !assert.NoError(t, err) {
 			return
 		}
@@ -126,11 +127,11 @@ func Test_Document(t *testing.T) {
 	})
 
 	t.Run("ED25519VerificationKey2018", func(t *testing.T) {
-		id := actual.ID
-		id.Fragment = "1"
+		keyID := DIDURL{DID: actual.ID}
+		keyID.Fragment = "added-assertion-method-1"
 
 		pubKey, _, _ := ed25519.GenerateKey(rand.Reader)
-		vm, err := NewVerificationMethod(id, ssi.ED25519VerificationKey2018, actual.ID, pubKey)
+		vm, err := NewVerificationMethod(keyID, ssi.ED25519VerificationKey2018, actual.ID, pubKey)
 		require.NoError(t, err)
 
 		publicKey, err := vm.PublicKey()
@@ -140,12 +141,12 @@ func Test_Document(t *testing.T) {
 
 	t.Run("ECDSASECP256K1VerificationKey2019", func(t *testing.T) {
 		t.Run("generated key", func(t *testing.T) {
-			id := actual.ID
-			id.Fragment = "1"
+			keyID := DIDURL{DID: actual.ID}
+			keyID.Fragment = "added-assertion-method-1"
 			privateKey, err := secp256k1.GeneratePrivateKey()
 			require.NoError(t, err)
 
-			vm, err := NewVerificationMethod(id, ssi.ECDSASECP256K1VerificationKey2019, actual.ID, privateKey.ToECDSA())
+			vm, err := NewVerificationMethod(keyID, ssi.ECDSASECP256K1VerificationKey2019, actual.ID, privateKey.ToECDSA())
 			require.NoError(t, err)
 
 			publicKey, err := vm.PublicKey()
@@ -374,6 +375,86 @@ func TestDocument_UnmarshallJSON(t *testing.T) {
 	})
 }
 
+func TestParseDocument(t *testing.T) {
+	t.Run("services", func(t *testing.T) {
+		t.Run("with relative ID", func(t *testing.T) {
+			documentAsMap := map[string]interface{}{
+				"id": "did:example:123",
+				"services": []Service{
+					{
+						ID: ssi.MustParseURI("#api"),
+					},
+				},
+			}
+			document, err := mapToDocument(documentAsMap)
+			require.NoError(t, err)
+			require.NotNil(t, document)
+		})
+	})
+	t.Run("verification method relationship resolving", func(t *testing.T) {
+		type testCase struct {
+			name                 string
+			verificationMethodID string
+			relationshipID       string
+			mustResolve          bool
+		}
+		testCases := []testCase{
+			{
+				name:                 "resolve, both absolute",
+				verificationMethodID: "did:example:123#abc",
+				relationshipID:       "did:example:123#abc",
+				mustResolve:          true,
+			},
+			{
+				name:                 "resolve, relative relationship",
+				verificationMethodID: "did:example:123#abc",
+				relationshipID:       "#abc",
+				mustResolve:          true,
+			},
+			{
+				name:                 "resolve, relative verification method ID",
+				verificationMethodID: "#abc",
+				relationshipID:       "did:example:123#abc",
+				mustResolve:          true,
+			},
+			{
+				name:                 "resolve, relative verification method ID and relationship",
+				verificationMethodID: "#abc",
+				relationshipID:       "#abc",
+				mustResolve:          true,
+			},
+			{
+				name:                 "no resolve, relationship ID does not match verification method ID",
+				verificationMethodID: "did:example:123#abc",
+				relationshipID:       "#def",
+				mustResolve:          false,
+			},
+		}
+		subjectID := MustParseDID("did:example:123")
+		for _, tc := range testCases {
+			t.Run(tc.name, func(t *testing.T) {
+				documentAsMap := map[string]interface{}{
+					"id": subjectID,
+					"verificationMethod": []interface{}{VerificationMethod{
+						ID:         MustParseDIDURL(tc.verificationMethodID),
+						Type:       ssi.ECDSASECP256K1VerificationKey2019,
+						Controller: subjectID,
+					}},
+					"authentication": []string{tc.relationshipID},
+				}
+				document, err := mapToDocument(documentAsMap)
+				if tc.mustResolve {
+					assert.NoError(t, err, "document parse failure")
+					require.NotNil(t, document)
+					assert.Equal(t, ssi.ECDSASECP256K1VerificationKey2019, document.Authentication[0].Type)
+				} else {
+					assert.EqualError(t, err, fmt.Sprintf("unable to resolve all 'authentication' references: unable to resolve verificationMethod: %s", tc.relationshipID))
+				}
+			})
+		}
+	})
+}
+
 func TestRoundTripMarshalling(t *testing.T) {
 	testCases := []string{
 		"did1",
@@ -416,32 +497,32 @@ func TestRoundTripMarshalling(t *testing.T) {
 }
 
 func TestDocument_RemoveVerificationMethod(t *testing.T) {
-	id123, _ := ParseDID("did:example:123")
+	id123 := MustParseDIDURL("did:example:123#key-1")
 
 	t.Run("ok", func(t *testing.T) {
 		doc := Document{}
-		vm := &VerificationMethod{ID: *id123}
+		vm := &VerificationMethod{ID: id123}
 		doc.AddAssertionMethod(vm)
 		doc.AddAuthenticationMethod(vm)
 		doc.AddCapabilityDelegation(vm)
 		doc.AddCapabilityInvocation(vm)
 		doc.AddKeyAgreement(vm)
 
-		doc.RemoveVerificationMethod(*id123)
+		doc.RemoveVerificationMethod(id123)
 
 		assert.Len(t, doc.VerificationMethod, 0,
 			"the verification method should have been deleted")
-		assert.Nil(t, doc.AssertionMethod.FindByID(*id123))
-		assert.Nil(t, doc.Authentication.FindByID(*id123))
-		assert.Nil(t, doc.CapabilityDelegation.FindByID(*id123))
-		assert.Nil(t, doc.CapabilityInvocation.FindByID(*id123))
-		assert.Nil(t, doc.KeyAgreement.FindByID(*id123))
+		assert.Nil(t, doc.AssertionMethod.FindByID(id123))
+		assert.Nil(t, doc.Authentication.FindByID(id123))
+		assert.Nil(t, doc.CapabilityDelegation.FindByID(id123))
+		assert.Nil(t, doc.CapabilityInvocation.FindByID(id123))
+		assert.Nil(t, doc.KeyAgreement.FindByID(id123))
 	})
 
 	t.Run("not found", func(t *testing.T) {
 		doc := Document{}
 
-		doc.RemoveVerificationMethod(*id123)
+		doc.RemoveVerificationMethod(id123)
 
 		assert.Len(t, doc.VerificationMethod, 0)
 	})
@@ -462,13 +543,20 @@ func TestVerificationRelationship_UnmarshalJSON(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Equal(t, "did:nuts:123#key-1", actual.ID.String())
 	})
+	t.Run("ok - relative ID", func(t *testing.T) {
+		input := `{"id": "#key-1"}`
+		actual := VerificationRelationship{}
+		err := json.Unmarshal([]byte(input), &actual)
+		assert.NoError(t, err)
+		assert.Equal(t, "#key-1", actual.ID.String())
+	})
 }
 
 func TestNewVerificationMethod(t *testing.T) {
 	t.Run("Ed25519VerificationKey2018", func(t *testing.T) {
-		id, _ := ParseDID("did:example:123")
+		id := MustParseDIDURL("did:example:123#1")
 		expectedKey, _, _ := ed25519.GenerateKey(rand.Reader)
-		vm, err := NewVerificationMethod(*id, ssi.ED25519VerificationKey2018, *id, expectedKey)
+		vm, err := NewVerificationMethod(id, ssi.ED25519VerificationKey2018, id.DID, expectedKey)
 		require.NoError(t, err)
 		assert.Equal(t, ssi.ED25519VerificationKey2018, vm.Type)
 		assert.NotEmpty(t, vm.PublicKeyMultibase)
@@ -484,7 +572,7 @@ func TestVerificationMethod_UnmarshalJSON(t *testing.T) {
 	t.Run("both publicKeyJWK and publicKeyMultibase present", func(t *testing.T) {
 		input, _ := json.Marshal(VerificationMethod{
 			ID:                 MustParseDIDURL("did:example:123#key-1"),
-			Controller:         MustParseDIDURL("did:example:123"),
+			Controller:         MustParseDID("did:example:123"),
 			PublicKeyJwk:       map[string]interface{}{"kty": "EC"},
 			PublicKeyMultibase: "foobar",
 		})
@@ -495,7 +583,7 @@ func TestVerificationMethod_UnmarshalJSON(t *testing.T) {
 	t.Run("all of publicKeyJWK, publicKeyMultibase and publicKeyBase58 are present", func(t *testing.T) {
 		input, _ := json.Marshal(VerificationMethod{
 			ID:                 MustParseDIDURL("did:example:123#key-1"),
-			Controller:         MustParseDIDURL("did:example:123"),
+			Controller:         MustParseDID("did:example:123"),
 			PublicKeyJwk:       map[string]interface{}{"kty": "EC"},
 			PublicKeyMultibase: "foobar",
 			PublicKeyBase58:    "foobar",
@@ -557,9 +645,9 @@ func TestService_UnmarshalServiceEndpoint(t *testing.T) {
 }
 
 func Test_VerificationMethods(t *testing.T) {
-	id123, _ := ParseDID("did:example:123")
-	id456, _ := ParseDID("did:example:456")
-	unknownID, _ := ParseDID("did:example:abc")
+	id123, _ := ParseDIDURL("did:example:123")
+	id456, _ := ParseDIDURL("did:example:456")
+	unknownID, _ := ParseDIDURL("did:example:abc")
 
 	t.Run("Remove", func(t *testing.T) {
 		t.Run("ok", func(t *testing.T) {
@@ -620,9 +708,9 @@ func Test_VerificationMethods(t *testing.T) {
 }
 
 func TestVerificationRelationships(t *testing.T) {
-	id123, _ := ParseDID("did:example:123")
-	id456, _ := ParseDID("did:example:456")
-	unknownID, _ := ParseDID("did:example:abc")
+	id123, _ := ParseDIDURL("did:example:123")
+	id456, _ := ParseDIDURL("did:example:456")
+	unknownID, _ := ParseDIDURL("did:example:abc")
 
 	t.Run("Remove", func(t *testing.T) {
 		t.Run("known value", func(t *testing.T) {
@@ -782,4 +870,36 @@ func TestDocument_IsController(t *testing.T) {
 	t.Run("is not a controller", func(t *testing.T) {
 		assert.False(t, Document{Controller: []DID{*id456}}.IsController(*id123))
 	})
+}
+
+func TestVerificationRelationships_FindByID(t *testing.T) {
+	t.Run("URL with DID", func(t *testing.T) {
+		keyID := MustParseDIDURL("did:example:123#0")
+		expected := &VerificationMethod{
+			ID: keyID,
+		}
+		rel := VerificationRelationships{
+			{
+				VerificationMethod: expected,
+			},
+		}
+		assert.Same(t, expected, rel.FindByID(keyID))
+	})
+	t.Run("URL without DID", func(t *testing.T) {
+		keyID := MustParseDIDURL("#0")
+		expected := &VerificationMethod{
+			ID: keyID,
+		}
+		rel := VerificationRelationships{
+			{
+				VerificationMethod: expected,
+			},
+		}
+		assert.Same(t, expected, rel.FindByID(keyID))
+	})
+}
+
+func mapToDocument(documentAsMap map[string]interface{}) (*Document, error) {
+	documentAsJSON, _ := json.Marshal(documentAsMap)
+	return ParseDocument(string(documentAsJSON))
 }

@@ -7,6 +7,7 @@ import (
 	"errors"
 	ssi "github.com/nuts-foundation/go-did"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"testing"
 )
 
@@ -15,10 +16,6 @@ func TestW3CSpecValidator(t *testing.T) {
 		assert.NoError(t, W3CSpecValidator{}.Validate(document()))
 	})
 	t.Run("base", func(t *testing.T) {
-		didUrl, err := ParseDIDURL("did:example:123#fragment")
-		if !assert.NoError(t, err) {
-			return
-		}
 		t.Run("context is missing DIDv1", func(t *testing.T) {
 			input := document()
 			input.Context = []interface{}{
@@ -34,28 +31,16 @@ func TestW3CSpecValidator(t *testing.T) {
 			input.ID = DID{}
 			assertIsError(t, ErrInvalidID, W3CSpecValidator{}.Validate(input))
 		})
-		t.Run("invalid ID - is URL", func(t *testing.T) {
-			input := document()
-			input.ID = *didUrl
-			assertIsError(t, ErrInvalidID, W3CSpecValidator{}.Validate(input))
-		})
-
 		t.Run("invalid controller - is empty", func(t *testing.T) {
 			input := document()
 			input.Controller = append(input.Controller, DID{})
-			assertIsError(t, ErrInvalidController, W3CSpecValidator{}.Validate(input))
-		})
-
-		t.Run("invalid controller - is URL", func(t *testing.T) {
-			input := document()
-			input.Controller = append(input.Controller, *didUrl)
 			assertIsError(t, ErrInvalidController, W3CSpecValidator{}.Validate(input))
 		})
 	})
 	t.Run("verificationMethod", func(t *testing.T) {
 		t.Run("invalid ID", func(t *testing.T) {
 			input := document()
-			input.VerificationMethod[0].ID = DID{}
+			input.VerificationMethod[0].ID = DIDURL{}
 			assertIsError(t, ErrInvalidVerificationMethod, W3CSpecValidator{}.Validate(input))
 		})
 		t.Run("invalid controller", func(t *testing.T) {
@@ -68,6 +53,11 @@ func TestW3CSpecValidator(t *testing.T) {
 			input.VerificationMethod[0].Type = " "
 			assertIsError(t, ErrInvalidVerificationMethod, W3CSpecValidator{}.Validate(input))
 		})
+		t.Run("ok - relative ID", func(t *testing.T) {
+			input := document()
+			input.VerificationMethod[0].ID = DIDURL{Fragment: "key-1"}
+			require.NoError(t, W3CSpecValidator{}.Validate(input))
+		})
 	})
 	t.Run("authentication", func(t *testing.T) {
 		t.Run("invalid ID", func(t *testing.T) {
@@ -76,7 +66,7 @@ func TestW3CSpecValidator(t *testing.T) {
 			vm := *input.VerificationMethod[0]
 			input.Authentication[0] = VerificationRelationship{VerificationMethod: &vm}
 			// Then alter
-			input.Authentication[0].ID = DID{}
+			input.Authentication[0].ID = DIDURL{}
 			assertIsError(t, ErrInvalidAuthentication, W3CSpecValidator{}.Validate(input))
 		})
 		t.Run("invalid controller", func(t *testing.T) {
@@ -87,6 +77,11 @@ func TestW3CSpecValidator(t *testing.T) {
 			// Then alter
 			input.Authentication[0].Controller = DID{}
 			assertIsError(t, ErrInvalidAuthentication, W3CSpecValidator{}.Validate(input))
+		})
+		t.Run("ok - relative ID", func(t *testing.T) {
+			input := document()
+			input.Authentication[0].reference = DIDURL{Fragment: "key-1"}
+			require.NoError(t, W3CSpecValidator{}.Validate(input))
 		})
 	})
 	t.Run("service", func(t *testing.T) {
@@ -114,6 +109,11 @@ func TestW3CSpecValidator(t *testing.T) {
 			input := document()
 			input.Service[0].ServiceEndpoint = 5
 			assertIsError(t, ErrInvalidService, W3CSpecValidator{}.Validate(input))
+		})
+		t.Run("ok - relative ID", func(t *testing.T) {
+			input := document()
+			input.Service[0].ServiceEndpoint = "service-1"
+			require.NoError(t, W3CSpecValidator{}.Validate(input))
 		})
 		t.Run("ok - endpoint is slice", func(t *testing.T) {
 			input := document()
@@ -167,11 +167,11 @@ func document() Document {
 	did, _ := ParseDID("did:test:12345")
 
 	privateKey, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
-	keyID := *did
+	keyID := DIDURL{DID: *did}
 	keyID.Fragment = "key-1"
 	vm, _ := NewVerificationMethod(keyID, ssi.JsonWebKey2020, *did, privateKey.Public())
 
-	serviceID := *did
+	serviceID := DIDURL{DID: *did}
 	serviceID.Fragment = "service-1"
 	doc := Document{
 		Context: []interface{}{
