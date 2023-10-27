@@ -39,6 +39,9 @@ var ErrInvalidCapabilityDelegation = errors.New("invalid capabilityDelegation")
 // ErrInvalidService indicates the service is invalid (e.g. invalid `id` or `type`)
 var ErrInvalidService = errors.New("invalid service")
 
+// ErrDuplicateServiceID indicates the service is invalid, because it has a duplicate ID
+var ErrDuplicateServiceID = errors.New("duplicate service ID")
+
 // Validator defines functions for validating a DID document.
 type Validator interface {
 	// Validate validates a DID document. It returns the first validation error is finds wrapped in ErrDIDDocumentInvalid.
@@ -163,7 +166,7 @@ func validateVM(vm *VerificationMethod) bool {
 type serviceValidator struct{}
 
 func (s serviceValidator) Validate(document Document) error {
-	for _, service := range document.Service {
+	for i, service := range document.Service {
 		if len(strings.TrimSpace(service.ID.String())) == 0 {
 			return makeValidationError(ErrInvalidService)
 		}
@@ -181,6 +184,12 @@ func (s serviceValidator) Validate(document Document) error {
 			break
 		default:
 			return makeValidationError(ErrInvalidService)
+		}
+		// service ID must be unique
+		for x, other := range document.Service {
+			if i != x && service.ID == other.ID {
+				return makeValidationError(ErrDuplicateServiceID)
+			}
 		}
 	}
 	return nil

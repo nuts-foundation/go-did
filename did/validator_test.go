@@ -100,6 +100,11 @@ func TestW3CSpecValidator(t *testing.T) {
 			input.Service[0].ServiceEndpoint = nil
 			assertIsError(t, ErrInvalidService, W3CSpecValidator{}.Validate(input))
 		})
+		t.Run("endpoint ID is duplicate", func(t *testing.T) {
+			input := document()
+			input.Service = append(input.Service, input.Service[0])
+			assertIsError(t, ErrDuplicateServiceID, W3CSpecValidator{}.Validate(input))
+		})
 		t.Run("endpoint is bool", func(t *testing.T) {
 			input := document()
 			input.Service[0].ServiceEndpoint = false
