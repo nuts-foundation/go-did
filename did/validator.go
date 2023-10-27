@@ -186,8 +186,8 @@ func (s serviceValidator) Validate(document Document) error {
 			return makeValidationError(ErrInvalidService)
 		}
 		// service ID must be unique
-		for x, other := range document.Service {
-			if i != x && service.ID == other.ID {
+		for _, other := range document.Service[i+1:] {
+			if service.ID == other.ID {
 				return makeValidationError(ErrDuplicateServiceID)
 			}
 		}
