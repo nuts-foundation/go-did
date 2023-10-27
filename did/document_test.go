@@ -55,8 +55,8 @@ func Test_Document(t *testing.T) {
 			return
 		}
 		expected := "https://www.w3.org/ns/did/v1"
-		if expected != actual.Context[0].String() {
-			t.Errorf("expected:\n%s\n, got:\n%s", expected, actual.Context[0].String())
+		if expected != actual.Context[0].(string) {
+			t.Errorf("expected:\n%s\n, got:\n%s", expected, actual.Context[0].(string))
 		}
 	})
 	t.Run("validate controllers", func(t *testing.T) {
