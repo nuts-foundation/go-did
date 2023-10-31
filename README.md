@@ -76,7 +76,7 @@ Use `ParseVerifiableCredential(raw string)` and `ParseVerifiablePresentation(raw
 
 - `JsonWebKey2020`
 - `Ed25519VerificationKey2018`
-- `EcdsaSecp256k1VerificationKey2019` (pass build tag to enable: `--tags=jwx_es256k`)
+- `EcdsaSecp256k1VerificationKey2019` (pass build tag to enable: `-tags=jwx_es256k`)
 
 ## Installation
 ```

@@ -5,8 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/lestrrat-go/jwx/jws"
-	"github.com/lestrrat-go/jwx/jwt"
+	"github.com/lestrrat-go/jwx/v2/jws"
+	"github.com/lestrrat-go/jwx/v2/jwt"
 	"github.com/nuts-foundation/go-did/did"
 	"strings"
 	"time"
@@ -63,7 +63,7 @@ func ParseVerifiableCredential(raw string) (*VerifiableCredential, error) {
 
 // parseJWTCredential parses a JWT credential according to https://www.w3.org/TR/2022/REC-vc-data-model-20220303/#jwt-decoding
 func parseJWTCredential(raw string) (*VerifiableCredential, error) {
-	token, err := jwt.Parse([]byte(raw))
+	token, err := jwt.Parse([]byte(raw), jwt.WithVerify(false), jwt.WithValidate(false))
 	if err != nil {
 		return nil, err
 	}
