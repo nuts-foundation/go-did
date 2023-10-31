@@ -21,7 +21,12 @@ func TestW3CSpecValidator(t *testing.T) {
 		}
 		t.Run("context is missing DIDv1", func(t *testing.T) {
 			input := document()
-			input.Context = []ssi.URI{}
+			input.Context = []interface{}{
+				"someting-else",
+				map[string]interface{}{
+					"@base": "did:example:123",
+				},
+			}
 			assertIsError(t, ErrInvalidContext, W3CSpecValidator{}.Validate(input))
 		})
 		t.Run("invalid ID - is empty", func(t *testing.T) {
@@ -169,7 +174,12 @@ func document() Document {
 	serviceID := *did
 	serviceID.Fragment = "service-1"
 	doc := Document{
-		Context:            []ssi.URI{DIDContextV1URI()},
+		Context: []interface{}{
+			DIDContextV1URI(),
+			map[string]interface{}{
+				"@base": "did:example:12345",
+			},
+		},
 		ID:                 *did,
 		Controller:         []DID{*did},
 		VerificationMethod: []*VerificationMethod{vm},

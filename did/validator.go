@@ -3,6 +3,7 @@ package did
 import (
 	"errors"
 	"fmt"
+	ssi "github.com/nuts-foundation/go-did"
 	"strings"
 )
 
@@ -106,7 +107,7 @@ type baseValidator struct{}
 
 func (w baseValidator) Validate(document Document) error {
 	// Verify `@context`
-	if !containsContext(document, DIDContextV1) {
+	if !containsContextURI(document, DIDContextV1) {
 		return makeValidationError(ErrInvalidContext)
 	}
 	// Verify `id`
@@ -186,9 +187,20 @@ func (s serviceValidator) Validate(document Document) error {
 	return nil
 }
 
-func containsContext(document Document, ctx string) bool {
+func containsContextURI(document Document, ctx string) bool {
 	for _, curr := range document.Context {
-		if curr.String() == ctx {
+		var currStr string
+		var ok bool
+		if currStr, ok = curr.(string); !ok {
+			// or it might be ssi.URI
+			if currURI, ok := curr.(ssi.URI); ok {
+				currStr = currURI.String()
+			} else {
+				// can't compare this context entry (might be a JSON-LD graph)
+				continue
+			}
+		}
+		if currStr == ctx {
 			return true
 		}
 	}

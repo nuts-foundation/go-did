@@ -55,7 +55,7 @@ func ParseDocument(raw string) (*Document, error) {
 
 // Document represents a DID Document as specified by the DID Core specification (https://www.w3.org/TR/did-core/).
 type Document struct {
-	Context              []ssi.URI                 `json:"@context"`
+	Context              []interface{}             `json:"@context"`
 	ID                   DID                       `json:"id"`
 	Controller           []DID                     `json:"controller,omitempty"`
 	AlsoKnownAs          []ssi.URI                 `json:"alsoKnownAs,omitempty"`
