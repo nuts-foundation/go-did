@@ -6,6 +6,7 @@ import (
 	"crypto/elliptic"
 	"crypto/rand"
 	"encoding/json"
+	"github.com/decred/dcrd/dcrec/secp256k1/v4"
 	ssi "github.com/nuts-foundation/go-did"
 	"github.com/stretchr/testify/require"
 	"testing"
@@ -124,19 +125,58 @@ func Test_Document(t *testing.T) {
 		t.Logf("resulting json:\n%s", didJson)
 	})
 
-	t.Run("it can add assertionMethods with ED25519VerificationKey2018", func(t *testing.T) {
+	t.Run("ED25519VerificationKey2018", func(t *testing.T) {
 		id := actual.ID
-		id.Fragment = "added-assertion-method-1"
+		id.Fragment = "1"
 
 		pubKey, _, _ := ed25519.GenerateKey(rand.Reader)
 		vm, err := NewVerificationMethod(id, ssi.ED25519VerificationKey2018, actual.ID, pubKey)
-		if !assert.NoError(t, err) {
-			return
-		}
+		require.NoError(t, err)
 
-		actual.AddAssertionMethod(vm)
-		didJson, _ := json.MarshalIndent(actual, "", "  ")
-		t.Logf("resulting json:\n%s", didJson)
+		publicKey, err := vm.PublicKey()
+		require.NoError(t, err)
+		require.NotNil(t, publicKey)
+	})
+
+	t.Run("ECDSASECP256K1VerificationKey2019", func(t *testing.T) {
+		t.Run("generated key", func(t *testing.T) {
+			id := actual.ID
+			id.Fragment = "1"
+			privateKey, err := secp256k1.GeneratePrivateKey()
+			require.NoError(t, err)
+
+			vm, err := NewVerificationMethod(id, ssi.ECDSASECP256K1VerificationKey2019, actual.ID, privateKey.ToECDSA())
+			require.NoError(t, err)
+
+			publicKey, err := vm.PublicKey()
+			require.NoError(t, err)
+			require.NotNil(t, publicKey)
+			asJWK, err := vm.JWK()
+			require.NoError(t, err)
+			require.NotNil(t, asJWK)
+		})
+		t.Run("static", func(t *testing.T) {
+			// copied from an online did:web source
+			const asJSON = `{
+				"controller": "did:web:example.com",
+				"id": "did:web:example.com#xCPeUKv-0t4TPSlRnk61AqIK-DtH-riOvyx_Udk65XA",
+				"publicKeyJwk": {
+					"kty": "EC",
+					"x": "P_kEHfyV27kg5oxn1pzTTDAkNKqsH9QdfdADcKLlr4Y",
+					"y": "GE0tU43W30xT-DKmF75uWCWSnXid3kKhnYZbdWhiguE",
+					"crv": "secp256k1",
+					"kid": "did:web:example.com#xCPeUKv-0t4TPSlRnk61AqIK-DtH-riOvyx_Udk65XA"
+				},
+				"type": "EcdsaSecp256k1VerificationKey2019"
+        	}`
+			vm := VerificationMethod{}
+			err := json.Unmarshal([]byte(asJSON), &vm)
+			require.NoError(t, err)
+
+			publicKey, err := vm.PublicKey()
+			require.NoError(t, err)
+			require.NotNil(t, publicKey)
+		})
 	})
 
 	t.Run("it can parse a jwk in a verification method", func(t *testing.T) {

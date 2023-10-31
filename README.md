@@ -72,6 +72,12 @@ Outputs:
 The library supports parsing of Verifiable Credentials and Verifiable Presentations in JSON-LD, and JWT proof format.
 Use `ParseVerifiableCredential(raw string)` and `ParseVerifiablePresentation(raw string)`.
 
+## Supported key types
+
+- `JsonWebKey2020`
+- `Ed25519VerificationKey2018`
+- `EcdsaSecp256k1VerificationKey2019` (pass build tag to enable: `--tags=jwx_es256k`)
+
 ## Installation
 ```
 go get github.com/nuts-foundation/go-did
