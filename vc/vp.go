@@ -3,7 +3,7 @@ package vc
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/lestrrat-go/jwx/jwt"
+	"github.com/lestrrat-go/jwx/v2/jwt"
 	"strings"
 
 	ssi "github.com/nuts-foundation/go-did"
@@ -77,7 +77,7 @@ func parseJSONLDPresentation(raw string) (*VerifiablePresentation, error) {
 }
 
 func parseJTWPresentation(raw string) (*VerifiablePresentation, error) {
-	token, err := jwt.Parse([]byte(raw))
+	token, err := jwt.Parse([]byte(raw), jwt.WithVerify(false), jwt.WithValidate(false))
 	if err != nil {
 		return nil, err
 	}

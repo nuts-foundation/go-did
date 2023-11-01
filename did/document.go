@@ -7,18 +7,14 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/lestrrat-go/jwx/jwa"
+
+	"github.com/lestrrat-go/jwx/v2/jwa"
+	"github.com/lestrrat-go/jwx/v2/jwk"
 	"github.com/multiformats/go-multibase"
 	"github.com/nuts-foundation/go-did"
-
-	"github.com/lestrrat-go/jwx/jwk"
-	"github.com/shengdoushi/base58"
-
 	"github.com/nuts-foundation/go-did/internal/marshal"
+	"github.com/shengdoushi/base58"
 )
-
-// lestrrat-go/jwx requires secp256k1 support to be enabled compile-time
-var errP256k1NotSupported = errors.New("secp256k1 support is not enabled")
 
 // ParseDocument parses a DID Document from a string.
 func ParseDocument(raw string) (*Document, error) {
@@ -337,7 +333,7 @@ func NewVerificationMethod(id DID, keyType ssi.KeyType, controller DID, key cryp
 	}
 
 	if keyType == ssi.JsonWebKey2020 {
-		keyAsJWK, err := jwk.New(key)
+		keyAsJWK, err := jwk.FromRaw(key)
 		if err != nil {
 			return nil, err
 		}
@@ -356,10 +352,7 @@ func NewVerificationMethod(id DID, keyType ssi.KeyType, controller DID, key cryp
 		vm.PublicKeyJwk = keyAsMap
 	}
 	if keyType == ssi.ECDSASECP256K1VerificationKey2019 {
-		if !secp256k1Supported() {
-			return nil, errP256k1NotSupported
-		}
-		keyAsJWK, err := jwk.New(key)
+		keyAsJWK, err := jwk.FromRaw(key)
 		if err != nil {
 			return nil, err
 		}
@@ -418,9 +411,6 @@ func (v VerificationMethod) PublicKey() (crypto.PublicKey, error) {
 		}
 		return ed25519.PublicKey(keyBytes), err
 	case ssi.ECDSASECP256K1VerificationKey2019:
-		if !secp256k1Supported() {
-			return nil, errP256k1NotSupported
-		}
 		if v.PublicKeyJwk == nil {
 			return nil, errors.New("missing publicKeyJwk")
 		}

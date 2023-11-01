@@ -6,8 +6,8 @@ import (
 	"crypto/elliptic"
 	"crypto/rand"
 	"encoding/json"
-	"github.com/lestrrat-go/jwx/jwa"
-	"github.com/lestrrat-go/jwx/jwt"
+	"github.com/lestrrat-go/jwx/v2/jwa"
+	"github.com/lestrrat-go/jwx/v2/jwt"
 	ssi "github.com/nuts-foundation/go-did"
 	"github.com/nuts-foundation/go-did/did"
 	"github.com/stretchr/testify/require"
@@ -108,7 +108,7 @@ func TestParseVerifiableCredential(t *testing.T) {
 		token := jwt.New()
 		require.NoError(t, token.Set("vc", map[string]interface{}{}))
 		keyPair, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
-		tokenBytes, err := jwt.Sign(token, jwa.ES256, keyPair)
+		tokenBytes, err := jwt.Sign(token, jwt.WithKey(jwa.ES256, keyPair))
 		require.NoError(t, err)
 		credential, err := ParseVerifiableCredential(string(tokenBytes))
 		require.NoError(t, err)
