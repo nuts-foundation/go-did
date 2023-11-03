@@ -11,6 +11,8 @@ import (
 	"github.com/lestrrat-go/jwx/v2/jwa"
 	"github.com/lestrrat-go/jwx/v2/jwk"
 	"github.com/multiformats/go-multibase"
+	"strings"
+
 	"github.com/nuts-foundation/go-did"
 	"github.com/nuts-foundation/go-did/internal/marshal"
 	"github.com/shengdoushi/base58"
@@ -31,19 +33,19 @@ func ParseDocument(raw string) (*Document, error) {
 	d := Document(doc)
 
 	const errMsg = "unable to resolve all '%s' references: %w"
-	if err = resolveVerificationRelationships(d.Authentication, d.VerificationMethod); err != nil {
+	if err = resolveVerificationRelationships(doc.ID, d.Authentication, d.VerificationMethod); err != nil {
 		return nil, fmt.Errorf(errMsg, authenticationKey, err)
 	}
-	if err = resolveVerificationRelationships(d.AssertionMethod, d.VerificationMethod); err != nil {
+	if err = resolveVerificationRelationships(doc.ID, d.AssertionMethod, d.VerificationMethod); err != nil {
 		return nil, fmt.Errorf(errMsg, assertionMethodKey, err)
 	}
-	if err = resolveVerificationRelationships(d.KeyAgreement, d.VerificationMethod); err != nil {
+	if err = resolveVerificationRelationships(doc.ID, d.KeyAgreement, d.VerificationMethod); err != nil {
 		return nil, fmt.Errorf(errMsg, keyAgreementKey, err)
 	}
-	if err = resolveVerificationRelationships(d.CapabilityInvocation, d.VerificationMethod); err != nil {
+	if err = resolveVerificationRelationships(doc.ID, d.CapabilityInvocation, d.VerificationMethod); err != nil {
 		return nil, fmt.Errorf(errMsg, capabilityInvocationKey, err)
 	}
-	if err = resolveVerificationRelationships(d.CapabilityDelegation, d.VerificationMethod); err != nil {
+	if err = resolveVerificationRelationships(doc.ID, d.CapabilityDelegation, d.VerificationMethod); err != nil {
 		return nil, fmt.Errorf(errMsg, capabilityDelegationKey, err)
 	}
 	return &d, nil
@@ -68,7 +70,7 @@ type VerificationMethods []*VerificationMethod
 
 // FindByID find the first VerificationMethod which matches the provided DID.
 // Returns nil when not found
-func (vms VerificationMethods) FindByID(id DID) *VerificationMethod {
+func (vms VerificationMethods) FindByID(id DIDURL) *VerificationMethod {
 	for _, vm := range vms {
 		if vm.ID.Equals(id) {
 			return vm
@@ -78,7 +80,7 @@ func (vms VerificationMethods) FindByID(id DID) *VerificationMethod {
 }
 
 // remove a VerificationMethod from the slice.
-func (vms *VerificationMethods) remove(id DID) {
+func (vms *VerificationMethods) remove(id DIDURL) {
 	var filteredVMS []*VerificationMethod
 	for _, vm := range *vms {
 		if !vm.ID.Equals(id) {
@@ -107,7 +109,7 @@ type VerificationRelationships []VerificationRelationship
 
 // FindByID returns the first VerificationRelationship that matches with the id.
 // For comparison both the ID of the embedded VerificationMethod and reference is used.
-func (vmr VerificationRelationships) FindByID(id DID) *VerificationMethod {
+func (vmr VerificationRelationships) FindByID(id DIDURL) *VerificationMethod {
 	for _, r := range vmr {
 		if r.VerificationMethod != nil {
 			if r.VerificationMethod.ID.Equals(id) {
@@ -120,7 +122,7 @@ func (vmr VerificationRelationships) FindByID(id DID) *VerificationMethod {
 
 // Remove removes a VerificationRelationship from the slice.
 // If a VerificationRelationship was removed with the given DID, it will be returned
-func (vmr *VerificationRelationships) Remove(id DID) *VerificationRelationship {
+func (vmr *VerificationRelationships) Remove(id DIDURL) *VerificationRelationship {
 	var (
 		filteredVMRels []VerificationRelationship
 		removedRel     *VerificationRelationship
@@ -149,7 +151,7 @@ func (vmr *VerificationRelationships) Add(vm *VerificationMethod) {
 
 // RemoveVerificationMethod from the document if present.
 // It'll also remove all references to the VerificationMethod
-func (d *Document) RemoveVerificationMethod(vmId DID) {
+func (d *Document) RemoveVerificationMethod(vmId DIDURL) {
 	d.VerificationMethod.remove(vmId)
 	d.AssertionMethod.Remove(vmId)
 	d.Authentication.Remove(vmId)
@@ -314,7 +316,7 @@ func (s Service) UnmarshalServiceEndpoint(target interface{}) error {
 
 // VerificationMethod represents a DID Verification Method as specified by the DID Core specification (https://www.w3.org/TR/did-core/#verification-methods).
 type VerificationMethod struct {
-	ID                 DID         `json:"id"`
+	ID                 DIDURL      `json:"id"`
 	Type               ssi.KeyType `json:"type,omitempty"`
 	Controller         DID         `json:"controller,omitempty"`
 	PublicKeyMultibase string      `json:"publicKeyMultibase,omitempty"`
@@ -325,7 +327,7 @@ type VerificationMethod struct {
 
 // NewVerificationMethod is a convenience method to easily create verificationMethods based on a set of given params.
 // It automatically encodes the provided public key based on the keyType.
-func NewVerificationMethod(id DID, keyType ssi.KeyType, controller DID, key crypto.PublicKey) (*VerificationMethod, error) {
+func NewVerificationMethod(id DIDURL, keyType ssi.KeyType, controller DID, key crypto.PublicKey) (*VerificationMethod, error) {
 	vm := &VerificationMethod{
 		ID:         id,
 		Type:       keyType,
@@ -432,7 +434,7 @@ func (v VerificationMethod) PublicKey() (crypto.PublicKey, error) {
 // VerificationRelationship represents the usage of a VerificationMethod e.g. in authentication, assertionMethod, or keyAgreement.
 type VerificationRelationship struct {
 	*VerificationMethod
-	reference DID
+	reference DIDURL
 }
 
 func (v VerificationRelationship) MarshalJSON() ([]byte, error) {
@@ -455,23 +457,47 @@ func (v *VerificationRelationship) UnmarshalJSON(b []byte) error {
 		}
 		*v = (VerificationRelationship)(tmp)
 	case '"':
-		err := json.Unmarshal(b, &v.reference)
+		keyID, err := parseKeyID(b)
 		if err != nil {
 			return fmt.Errorf("could not parse verificationRelation key relation DID: %w", err)
 		}
+		v.reference = *keyID
 	default:
 		return errors.New("verificationRelation is invalid")
 	}
 	return nil
 }
 
-func (v *VerificationMethod) UnmarshalJSON(bytes []byte) error {
-	type Alias VerificationMethod
-	tmp := Alias{}
-	err := json.Unmarshal(bytes, &tmp)
+func parseKeyID(b []byte) (*DIDURL, error) {
+	var keyIDString string
+	err := json.Unmarshal(b, &keyIDString)
 	if err != nil {
+		return nil, err
+	}
+	// 2 possible formats:
+	// - Fully qualified, includes the DID of the key controller, e.g.: did:example:123456789abcdefghi#key-1
+	// - Relative, only includes the key ID, e.g.: #key-1
+	if strings.HasPrefix(keyIDString, "#") {
+		return &DIDURL{Fragment: keyIDString[1:]}, nil
+	}
+	return ParseDIDURL(keyIDString)
+}
+
+func (v *VerificationMethod) UnmarshalJSON(bytes []byte) error {
+	// Use an alias since ID should conform to DID URL syntax, not DID syntax
+	type alias struct {
+		ID                 string                 `json:"id"`
+		Type               ssi.KeyType            `json:"type,omitempty"`
+		Controller         DID                    `json:"controller,omitempty"`
+		PublicKeyMultibase string                 `json:"publicKeyMultibase,omitempty"`
+		PublicKeyBase58    string                 `json:"publicKeyBase58,omitempty"`
+		PublicKeyJwk       map[string]interface{} `json:"publicKeyJwk,omitempty"`
+	}
+	var tmp alias
+	if err := json.Unmarshal(bytes, &tmp); err != nil {
 		return err
 	}
+
 	// publicKeyJWK, publicKeyBase58 and publicKeyMultibase are all mutually exclusive
 	countPresent := 0
 	if len(tmp.PublicKeyJwk) > 0 {
@@ -486,16 +512,29 @@ func (v *VerificationMethod) UnmarshalJSON(bytes []byte) error {
 	if countPresent > 1 {
 		return errors.New("only one of publicKeyJWK, publicKeyBase58 and publicKeyMultibase can be present")
 	}
-	*v = (VerificationMethod)(tmp)
+
+	id, err := ParseDIDURL(tmp.ID)
+	if err != nil {
+		return fmt.Errorf("invalid id: %w", err)
+	}
+	*v = VerificationMethod{
+		ID:                 *id,
+		Type:               tmp.Type,
+		Controller:         tmp.Controller,
+		PublicKeyMultibase: tmp.PublicKeyMultibase,
+		PublicKeyBase58:    tmp.PublicKeyBase58,
+		PublicKeyJwk:       tmp.PublicKeyJwk,
+	}
 	return nil
 }
 
-func resolveVerificationRelationships(relationships []VerificationRelationship, methods []*VerificationMethod) error {
+func resolveVerificationRelationships(baseURI DID, relationships []VerificationRelationship, methods []*VerificationMethod) error {
 	for i, relationship := range relationships {
 		if relationship.reference.Empty() {
 			continue
 		}
-		if resolved := resolveVerificationRelationship(relationship.reference, methods); resolved == nil {
+		ref := relativeURLToAbsoluteURL(baseURI, relationship.reference)
+		if resolved := resolveVerificationRelationship(baseURI, ref, methods); resolved == nil {
 			return fmt.Errorf("unable to resolve %s: %s", verificationMethodKey, relationship.reference.String())
 		} else {
 			relationships[i] = *resolved
@@ -505,9 +544,20 @@ func resolveVerificationRelationships(relationships []VerificationRelationship, 
 	return nil
 }
 
-func resolveVerificationRelationship(reference DID, methods []*VerificationMethod) *VerificationRelationship {
+// relativeURLToAbsoluteURL converts the reference to an absolute URL if it is relative.
+// This means it copies the base DID to the reference (if not set in the reference).
+func relativeURLToAbsoluteURL(baseURI DID, ref DIDURL) DIDURL {
+	if ref.ID == "" {
+		// reference is relative to base URI (DID subject ID)
+		ref.Method = baseURI.Method
+		ref.ID = baseURI.ID
+	}
+	return ref
+}
+
+func resolveVerificationRelationship(baseURI DID, reference DIDURL, methods []*VerificationMethod) *VerificationRelationship {
 	for _, method := range methods {
-		if method.ID.Equals(reference) {
+		if relativeURLToAbsoluteURL(baseURI, method.ID).Equals(reference) {
 			return &VerificationRelationship{VerificationMethod: method}
 		}
 	}
