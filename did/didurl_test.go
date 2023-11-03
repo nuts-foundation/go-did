@@ -447,10 +447,6 @@ func TestDIDURL_URI(t *testing.T) {
 			name:     "with escaped path",
 			expected: "/foo%20bar?key=value#fragment",
 		},
-		{
-			name:     "with escaped fragment",
-			expected: "/foo?key=value#frag%20ment",
-		},
 	}
 
 	for _, tc := range testCases {

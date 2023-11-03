@@ -26,7 +26,6 @@ type DIDURL struct {
 	// Query contains the DID query key-value pairs, in unescaped form.
 	// String() will escape the values again, and order the keys alphabetically.
 	Query url.Values
-
 	// Fragment is the DID fragment without the leading '#', in escaped form.
 	Fragment string
 	// DecodedFragment is the DID fragment without the leading '#', in unescaped form.
@@ -109,8 +108,7 @@ func (d DIDURL) URI() ssi.URI {
 	if len(d.Query) != 0 {
 		result.Opaque += "?" + d.Query.Encode()
 	}
-	result.Fragment = d.DecodedFragment
-	result.RawFragment = d.Fragment
+	result.Fragment = d.Fragment
 	return result
 }
 
