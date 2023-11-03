@@ -99,10 +99,18 @@ func (d DIDURL) cleanup() DIDURL {
 // URI converts the DIDURL to a URI.
 // URIs are used in Verifiable Credentials
 func (d DIDURL) URI() ssi.URI {
-	result := d.DID.URI()
+	var result ssi.URI
+	if !d.DID.Empty() {
+		result = d.DID.URI()
+	}
+	if d.Path != "" {
+		result.Opaque += "/" + d.Path
+	}
+	if len(d.Query) != 0 {
+		result.Opaque += "?" + d.Query.Encode()
+	}
+	result.Fragment = d.DecodedFragment
 	result.RawFragment = d.Fragment
-	result.RawPath = d.Path
-	result.RawQuery = d.Query.Encode()
 	return result
 }
 

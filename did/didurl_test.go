@@ -402,8 +402,61 @@ func TestDIDURL_Empty(t *testing.T) {
 }
 
 func TestDIDURL_URI(t *testing.T) {
-	id, err := ParseDIDURL("did:example:123")
-	require.NoError(t, err)
-	uri := id.URI()
-	assert.Equal(t, id.String(), uri.String())
+	type testCase struct {
+		name     string
+		expected string
+	}
+	testCases := []testCase{
+		{
+			name:     "just DID",
+			expected: "did:example:123",
+		},
+		{
+			name:     "with path",
+			expected: "did:example:123/foo",
+		},
+		{
+			name:     "with query",
+			expected: "did:example:123?key=value",
+		},
+		{
+			name:     "with fragment",
+			expected: "did:example:123#fragment",
+		},
+		{
+			name:     "with everything",
+			expected: "did:example:123/foo?key=value#fragment",
+		},
+		{
+			name:     "without DID",
+			expected: "/foo?key=value#fragment",
+		},
+		{
+			name:     "just fragment",
+			expected: "#fragment",
+		},
+		{
+			name:     "just query",
+			expected: "?key=value",
+		},
+		{
+			name:     "just path",
+			expected: "/foo",
+		},
+		{
+			name:     "with escaped path",
+			expected: "/foo%20bar?key=value#fragment",
+		},
+		{
+			name:     "with escaped fragment",
+			expected: "/foo?key=value#frag%20ment",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			id := MustParseDIDURL(tc.expected)
+			assert.Equal(t, tc.expected, id.URI().String())
+		})
+	}
 }
