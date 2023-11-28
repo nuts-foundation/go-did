@@ -142,7 +142,7 @@ type VerifiableCredential struct {
 	IssuanceDate time.Time `json:"issuanceDate"`
 	// ExpirationDate is a rfc3339 formatted datetime. It is optional
 	ExpirationDate *time.Time `json:"expirationDate,omitempty"`
-	// CredentialStatus holds information on how the credential can be revoked. It is optional
+	// CredentialStatus holds information on how the credential can be revoked. It must be extracted using the UnmarshalCredentialStatus method and a custom type. It is optional
 	CredentialStatus *CredentialStatus `json:"credentialStatus,omitempty"`
 	// CredentialSubject holds the actual data for the credential. It must be extracted using the UnmarshalCredentialSubject method and a custom type.
 	CredentialSubject []interface{} `json:"credentialSubject"`
@@ -243,6 +243,16 @@ func (vc VerifiableCredential) UnmarshalCredentialSubject(target interface{}) er
 	} else {
 		return json.Unmarshal(asJSON, target)
 	}
+}
+
+// UnmarshalCredentialStatus unmarshalls the credentialStatus field to the provided target.
+func (vc VerifiableCredential) UnmarshalCredentialStatus(target any) error {
+	type VC struct {
+		Target any `json:"credentialStatus"`
+	}
+
+	cs := VC{Target: target}
+	return json.Unmarshal([]byte(vc.Raw()), &cs)
 }
 
 // SubjectDID returns the credential subject's ID as DID (credentialSubject.id).

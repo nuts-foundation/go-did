@@ -138,6 +138,32 @@ func TestVerifiableCredential_UnmarshalCredentialSubject(t *testing.T) {
 	})
 }
 
+func TestVerifiableCredential_UnmarshalCredentialStatus(t *testing.T) {
+	// custom status that contains more fields than CredentialStatus
+	type CustomCredentialStatus struct {
+		Id          string `json:"id,omitempty"`
+		Type        string `json:"type,omitempty"`
+		CustomField string `json:"customField,omitempty"`
+	}
+	expectedJSON := `
+	{ "credentialStatus": {
+		"type": "CustomType",
+		"customField": "not empty"
+	  }
+	}`
+	t.Run("ok", func(t *testing.T) {
+		input := VerifiableCredential{}
+		json.Unmarshal([]byte(expectedJSON), &input)
+		var target CustomCredentialStatus
+
+		err := input.UnmarshalCredentialStatus(&target)
+
+		assert.NoError(t, err)
+		assert.Equal(t, "CustomType", target.Type)
+		assert.Equal(t, "not empty", target.CustomField)
+	})
+}
+
 func TestCredentialStatus(t *testing.T) {
 	t.Run("can unmarshal JWT VC Presentation Profile JWT-VC example", func(t *testing.T) {
 		// CredentialStatus example taken from https://identity.foundation/jwt-vc-presentation-profile/#vc-jwt
