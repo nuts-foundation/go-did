@@ -43,13 +43,15 @@ func TestVerifiableCredential_JSONMarshalling(t *testing.T) {
 		raw := `{
 		  "id":"did:example:123#vc-1",
 		  "type":["VerifiableCredential", "custom"],
-		  "credentialSubject": {"name": "test"}
+		  "credentialSubject": {"name": "test"},
+		  "credentialStatus": {"id": "example.com", "type": "Custom"}
 		}`
 		err := json.Unmarshal([]byte(raw), &input)
 		require.NoError(t, err)
 		assert.Equal(t, "did:example:123#vc-1", input.ID.String())
 		assert.Equal(t, []ssi.URI{VerifiableCredentialTypeV1URI(), ssi.MustParseURI("custom")}, input.Type)
 		assert.Equal(t, []interface{}{map[string]interface{}{"name": "test"}}, input.CredentialSubject)
+		assert.Equal(t, []interface{}{map[string]interface{}{"id": "example.com", "type": "Custom"}}, input.CredentialStatus)
 		assert.Equal(t, JSONLDCredentialProofFormat, input.Format())
 		assert.Equal(t, raw, input.Raw())
 		assert.Nil(t, input.JWT())
@@ -139,32 +141,52 @@ func TestVerifiableCredential_UnmarshalCredentialSubject(t *testing.T) {
 }
 
 func TestVerifiableCredential_UnmarshalCredentialStatus(t *testing.T) {
-	// custom status that contains more fields than CredentialStatus
 	type CustomCredentialStatus struct {
 		Id          string `json:"id,omitempty"`
 		Type        string `json:"type,omitempty"`
 		CustomField string `json:"customField,omitempty"`
 	}
 	expectedJSON := `
-	{ "credentialStatus": {
-		"type": "CustomType",
-		"customField": "not empty"
-	  }
-	}`
-	t.Run("ok", func(t *testing.T) {
-		input := VerifiableCredential{}
-		json.Unmarshal([]byte(expectedJSON), &input)
-		var target CustomCredentialStatus
+			{ "credentialStatus": {
+				"id": "not a uri but doesn't fail",
+				"type": "CustomType",
+				"customField": "not empty"
+			  }
+			}`
+	// custom status that contains more fields than CredentialStatus
+	cred := VerifiableCredential{}
+	require.NoError(t, json.Unmarshal([]byte(expectedJSON), &cred))
+	var target []CustomCredentialStatus
 
-		err := input.UnmarshalCredentialStatus(&target)
+	err := cred.UnmarshalCredentialStatus(&target)
 
-		assert.NoError(t, err)
-		assert.Equal(t, "CustomType", target.Type)
-		assert.Equal(t, "not empty", target.CustomField)
-	})
+	assert.NoError(t, err)
+	require.Len(t, target, 1)
+	assert.Equal(t, "CustomType", target[0].Type)
+	assert.Equal(t, "not empty", target[0].CustomField)
 }
 
-func TestCredentialStatus(t *testing.T) {
+func TestVerifiableCredential_CredentialStatuses(t *testing.T) {
+	expectedJSON := `
+			{ "credentialStatus": {
+				"id": "valid.uri",
+				"type": "CustomType",
+				"customField": "not empty"
+			  }
+			}`
+	cred := VerifiableCredential{}
+	require.NoError(t, json.Unmarshal([]byte(expectedJSON), &cred))
+
+	statuses, err := cred.CredentialStatuses()
+
+	assert.NoError(t, err)
+	require.Len(t, statuses, 1)
+	assert.Equal(t, ssi.MustParseURI("valid.uri"), statuses[0].ID)
+	assert.Equal(t, "CustomType", statuses[0].Type)
+	assert.NotEmpty(t, statuses[0].Raw())
+}
+
+func TestCredentialStatus_UnmarshalJSON(t *testing.T) {
 	t.Run("can unmarshal JWT VC Presentation Profile JWT-VC example", func(t *testing.T) {
 		// CredentialStatus example taken from https://identity.foundation/jwt-vc-presentation-profile/#vc-jwt
 		// Regression: earlier defined credentialStatus.id as url.URL, which breaks since it's specified as URI by the core specification.
@@ -180,7 +202,26 @@ func TestCredentialStatus(t *testing.T) {
 		require.NoError(t, err)
 
 		assert.Equal(t, "urn:uuid:7facf41c-1dc5-486b-87e6-587d015e76d7?bit-index=10", actual.ID.String())
+		assert.Greater(t, len(actual.raw), 1)
 	})
+}
+
+func TestCredentialStatus_Raw(t *testing.T) {
+	orig := CredentialStatus{
+		ID:   ssi.MustParseURI("something"),
+		Type: "statusType",
+	}
+	bs, _ := json.Marshal(orig)
+
+	var remarshalled CredentialStatus
+	require.NoError(t, json.Unmarshal(bs, &remarshalled))
+
+	raw := remarshalled.Raw()
+	require.Greater(t, len(raw), 1) // make sure raw exists, and we do not end up creating a new slice
+
+	assert.Equal(t, raw, remarshalled.raw)
+	raw[0] = 'x' // was '{'
+	assert.NotEqual(t, raw, remarshalled.raw)
 }
 
 func TestVerifiableCredential_UnmarshalProof(t *testing.T) {
