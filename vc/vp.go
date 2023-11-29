@@ -166,11 +166,7 @@ func (vp VerifiablePresentation) MarshalJSON() ([]byte, error) {
 	}
 	type alias VerifiablePresentation
 	tmp := alias(vp)
-	if data, err := json.Marshal(tmp); err != nil {
-		return nil, err
-	} else {
-		return marshal.NormalizeDocument(data, pluralContext, marshal.Unplural(typeKey), marshal.Unplural(verifiableCredentialKey), marshal.Unplural(proofKey))
-	}
+	return json.Marshal(tmp)
 }
 
 func (vp *VerifiablePresentation) UnmarshalJSON(b []byte) error {
