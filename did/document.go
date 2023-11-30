@@ -265,21 +265,7 @@ type Service struct {
 	ServiceEndpoint interface{} `json:"serviceEndpoint,omitempty"`
 }
 
-func (s *Service) UnmarshalJSON(data []byte) error {
-	normalizedData, err := marshal.NormalizeDocument(data, pluralContext)
-	if err != nil {
-		return err
-	}
-	type alias Service
-	var result alias
-	if err := json.Unmarshal(normalizedData, &result); err != nil {
-		return err
-	}
-	*s = (Service)(result)
-	return nil
-}
-
-// Unmarshal unmarshalls the service endpoint into a domain-specific type.
+// UnmarshalServiceEndpoint unmarshalls the service endpoint into a domain-specific type.
 func (s Service) UnmarshalServiceEndpoint(target interface{}) error {
 	var valueToMarshal interface{}
 	if asSlice, ok := s.ServiceEndpoint.([]interface{}); ok && len(asSlice) == 1 {
