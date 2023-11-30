@@ -64,7 +64,7 @@ func TestVerifiableCredential_JSONMarshalling(t *testing.T) {
 			input := VerifiableCredential{}
 			marshalled, err := json.Marshal(input)
 			require.NoError(t, err)
-			assert.Equal(t, "{\"@context\":null,\"credentialSubject\":null,\"issuanceDate\":\"0001-01-01T00:00:00Z\",\"issuer\":\"\",\"proof\":null,\"type\":null}", string(marshalled))
+			assert.Equal(t, "{\"@context\":null,\"credentialSubject\":null,\"issuer\":\"\",\"proof\":null,\"type\":null}", string(marshalled))
 		})
 	})
 	t.Run("JWT", func(t *testing.T) {
@@ -401,7 +401,7 @@ func TestCreateJWTVerifiableCredential(t *testing.T) {
 			VerifiableCredentialTypeV1URI(),
 			ssi.MustParseURI("https://example.com/custom"),
 		},
-		IssuanceDate:   issuanceDate,
+		IssuanceDate:   &issuanceDate,
 		ExpirationDate: &expirationDate,
 		CredentialSubject: []interface{}{
 			map[string]interface{}{
@@ -410,15 +410,22 @@ func TestCreateJWTVerifiableCredential(t *testing.T) {
 		},
 		Issuer: issuerDID.URI(),
 	}
+	captureFn := func(claims *map[string]any, headers *map[string]any) func(_ context.Context, c map[string]interface{}, h map[string]interface{}) (string, error) {
+		return func(_ context.Context, c map[string]interface{}, h map[string]interface{}) (string, error) {
+			if claims != nil {
+				*claims = c
+			}
+			if headers != nil {
+				*headers = h
+			}
+			return jwtCredential, nil
+		}
+	}
 	ctx := context.Background()
 	t.Run("all properties", func(t *testing.T) {
 		var claims map[string]interface{}
 		var headers map[string]interface{}
-		_, err := CreateJWTVerifiableCredential(ctx, template, func(_ context.Context, c map[string]interface{}, h map[string]interface{}) (string, error) {
-			claims = c
-			headers = h
-			return jwtCredential, nil
-		})
+		_, err := CreateJWTVerifiableCredential(ctx, template, captureFn(&claims, &headers))
 		assert.NoError(t, err)
 		assert.Equal(t, issuerDID.String(), claims[jwt.IssuerKey])
 		assert.Equal(t, subjectDID.String(), claims[jwt.SubjectKey])
@@ -433,16 +440,46 @@ func TestCreateJWTVerifiableCredential(t *testing.T) {
 		assert.Equal(t, map[string]interface{}{"typ": "JWT"}, headers)
 	})
 	t.Run("only mandatory properties", func(t *testing.T) {
-		minimumTemplate := template
-		minimumTemplate.ExpirationDate = nil
-		minimumTemplate.ID = nil
+		minimumTemplate := VerifiableCredential{CredentialSubject: template.CredentialSubject}
 		var claims map[string]interface{}
-		_, err := CreateJWTVerifiableCredential(ctx, minimumTemplate, func(_ context.Context, c map[string]interface{}, _ map[string]interface{}) (string, error) {
-			claims = c
-			return jwtCredential, nil
-		})
+		_, err := CreateJWTVerifiableCredential(ctx, minimumTemplate, captureFn(&claims, nil))
 		assert.NoError(t, err)
+		assert.Nil(t, claims[jwt.NotBeforeKey])
 		assert.Nil(t, claims[jwt.ExpirationKey])
 		assert.Nil(t, claims[jwt.JwtIDKey])
 	})
+	t.Run("error - cannot use validFrom", func(t *testing.T) {
+		template := VerifiableCredential{
+			CredentialSubject: template.CredentialSubject,
+			ValidFrom:         &issuanceDate,
+		}
+		_, err := CreateJWTVerifiableCredential(ctx, template, captureFn(nil, nil))
+		assert.EqualError(t, err, "cannot use validFrom/validUntil to generate JWT-VCs")
+	})
+	t.Run("error - cannot use validUntil", func(t *testing.T) {
+		template := VerifiableCredential{
+			CredentialSubject: template.CredentialSubject,
+			ValidUntil:        &expirationDate,
+		}
+		_, err := CreateJWTVerifiableCredential(ctx, template, captureFn(nil, nil))
+		assert.EqualError(t, err, "cannot use validFrom/validUntil to generate JWT-VCs")
+	})
+}
+
+func TestVerifiableCredential_ValidAt(t *testing.T) {
+	lll := time.Date(1999, 0, 0, 0, 0, 0, 0, time.UTC)
+	hhh := time.Date(2001, 0, 0, 0, 0, 0, 0, time.UTC)
+
+	// no validity period is always true; includes missing IssuanceDate(.IsZero() == true)
+	assert.True(t, VerifiableCredential{}.ValidAt(time.Now()))
+
+	// valid on bounds
+	assert.True(t, VerifiableCredential{IssuanceDate: &lll, ValidFrom: &lll}.ValidAt(lll))
+	assert.True(t, VerifiableCredential{ExpirationDate: &lll, ValidUntil: &lll}.ValidAt(lll))
+
+	// invalid
+	assert.False(t, VerifiableCredential{IssuanceDate: &hhh, ValidFrom: &lll}.ValidAt(lll))
+	assert.False(t, VerifiableCredential{IssuanceDate: &lll, ValidFrom: &hhh}.ValidAt(lll))
+	assert.False(t, VerifiableCredential{ExpirationDate: &hhh, ValidUntil: &lll}.ValidAt(hhh))
+	assert.False(t, VerifiableCredential{ExpirationDate: &lll, ValidUntil: &hhh}.ValidAt(hhh))
 }
