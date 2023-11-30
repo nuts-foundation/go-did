@@ -1,6 +1,7 @@
 package vc
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -88,7 +89,8 @@ func parseJWTCredential(raw string) (*VerifiableCredential, error) {
 	}
 	// parse nbf
 	if _, ok := token.Get(jwt.NotBeforeKey); ok {
-		result.IssuanceDate = token.NotBefore()
+		nbf := token.NotBefore()
+		result.IssuanceDate = &nbf
 	}
 	// parse sub
 	if token.Subject() != "" {
@@ -113,7 +115,7 @@ func parseJWTCredential(raw string) (*VerifiableCredential, error) {
 
 func parseJSONLDCredential(raw string) (*VerifiableCredential, error) {
 	type Alias VerifiableCredential
-	normalizedVC, err := marshal.NormalizeDocument([]byte(raw), pluralContext, marshal.Plural(typeKey), marshal.Plural(credentialSubjectKey), marshal.Plural(proofKey))
+	normalizedVC, err := marshal.NormalizeDocument([]byte(raw), pluralContext, marshal.Plural(typeKey), marshal.Plural(credentialSubjectKey), marshal.Plural(credentialStatusKey), marshal.Plural(proofKey))
 	if err != nil {
 		return nil, err
 	}
@@ -138,12 +140,20 @@ type VerifiableCredential struct {
 	Type []ssi.URI `json:"type"`
 	// Issuer refers to the party that issued the credential
 	Issuer ssi.URI `json:"issuer"`
-	// IssuanceDate is a rfc3339 formatted datetime.
-	IssuanceDate time.Time `json:"issuanceDate"`
-	// ExpirationDate is a rfc3339 formatted datetime. It is optional
+	// IssuanceDate is a rfc3339 formatted datetime. Has alias ValidFrom
+	IssuanceDate *time.Time `json:"issuanceDate,omitempty"`
+	// ValidFrom is a rfc3339 formatted datetime. It is optional, and is mutually exclusive with IssuanceDate (not enforced).
+	// It's a forwards compatible alternative for IssuanceDate.
+	// The jwt-vc 'nbf' field will unmarshal to IssuanceDate, which may not match with the JSON-LD definition of certain VCs.
+	ValidFrom *time.Time `json:"validFrom,omitempty"`
+	// ExpirationDate is a rfc3339 formatted datetime. Has alias ValidUntil. It is optional
 	ExpirationDate *time.Time `json:"expirationDate,omitempty"`
-	// CredentialStatus holds information on how the credential can be revoked. It is optional
-	CredentialStatus *CredentialStatus `json:"credentialStatus,omitempty"`
+	// ValidFrom is a rfc3339 formatted datetime. It is optional, and is mutually exclusive with ExpirationDate (not enforced).
+	// It's a forwards compatible alternative for ExpirationDate.
+	// The jwt-vc 'exp' field will unmarshal to ExpirationDate, which may not match with the JSON-LD definition of certain VCs.
+	ValidUntil *time.Time `json:"validUntil,omitempty"`
+	// CredentialStatus holds information on how the credential can be revoked. It must be extracted using the UnmarshalCredentialStatus method and a custom type.
+	CredentialStatus []any `json:"credentialStatus,omitempty"`
 	// CredentialSubject holds the actual data for the credential. It must be extracted using the UnmarshalCredentialSubject method and a custom type.
 	CredentialSubject []interface{} `json:"credentialSubject"`
 	// Proof contains the cryptographic proof(s). It must be extracted using the Proofs method or UnmarshalProofValue method for non-generic proof fields.
@@ -173,10 +183,75 @@ func (vc VerifiableCredential) JWT() jwt.Token {
 	return token
 }
 
-// CredentialStatus defines the method on how to determine a credential is revoked.
+// ValidAt returns true if
+// - t >= IssuanceDate and ValidFrom
+// - t <= ExpirationDate and ValidUntil
+// For any value that is missing, the evaluation defaults to true
+func (vc VerifiableCredential) ValidAt(t time.Time) bool {
+	// IssuanceDate is a required field, but will default to the zero value when missing. (when ValidFrom != nil)
+	// t > IssuanceDate
+	if vc.IssuanceDate != nil && t.Before(*vc.IssuanceDate) {
+		return false
+	}
+	// t > ValidFrom
+	if vc.ValidFrom != nil && t.Before(*vc.ValidFrom) {
+		return false
+	}
+	// t < ExpirationDate
+	if vc.ExpirationDate != nil && t.After(*vc.ExpirationDate) {
+		return false
+	}
+	// t < ValidUntil
+	if vc.ValidUntil != nil && t.After(*vc.ValidUntil) {
+		return false
+	}
+	// valid
+	return true
+}
+
+// CredentialStatus contains the required fields ID and Type, and the raw data for unmarshalling into a custom type.
 type CredentialStatus struct {
 	ID   ssi.URI `json:"id"`
 	Type string  `json:"type"`
+	raw  []byte
+}
+
+func (cs *CredentialStatus) UnmarshalJSON(input []byte) error {
+	type alias *CredentialStatus
+	a := alias(cs)
+	err := json.Unmarshal(input, a)
+	if err != nil {
+		return err
+	}
+
+	// keep compacted copy of the input
+	buf := new(bytes.Buffer)
+	if err = json.Compact(buf, input); err != nil {
+		// should never happen, already parsed as valid json
+		return err
+	}
+	cs.raw = buf.Bytes()
+	return nil
+}
+
+// Raw returns a copy of the underlying credentialStatus data as set during UnmarshalJSON.
+// This can be used to marshal the data into a custom status credential type.
+func (cs *CredentialStatus) Raw() []byte {
+	if cs.raw == nil {
+		return nil
+	}
+	cp := make([]byte, len(cs.raw))
+	copy(cp, cs.raw)
+	return cp
+}
+
+// CredentialStatuses returns VerifiableCredential.CredentialStatus marshalled into a CredentialStatus slice.
+func (vc VerifiableCredential) CredentialStatuses() ([]CredentialStatus, error) {
+	var statuses []CredentialStatus
+	if err := vc.UnmarshalCredentialStatus(&statuses); err != nil {
+		return nil, err
+	}
+	return statuses, nil
 }
 
 // Proofs returns the basic proofs for this credential. For specific proof contents, UnmarshalProofValue must be used.
@@ -206,7 +281,7 @@ func (vc VerifiableCredential) MarshalJSON() ([]byte, error) {
 	if data, err := json.Marshal(tmp); err != nil {
 		return nil, err
 	} else {
-		return marshal.NormalizeDocument(data, pluralContext, marshal.Unplural(typeKey), marshal.Unplural(credentialSubjectKey), marshal.Unplural(proofKey))
+		return marshal.NormalizeDocument(data, pluralContext, marshal.Unplural(typeKey), marshal.Unplural(credentialSubjectKey), marshal.Unplural(credentialStatusKey), marshal.Unplural(proofKey))
 	}
 }
 
@@ -229,16 +304,21 @@ func (vc *VerifiableCredential) UnmarshalJSON(b []byte) error {
 // UnmarshalProofValue unmarshalls the proof to the given proof type. Always pass a slice as target since there could be multiple proofs.
 // Each proof will result in a value, where null values may exist when the proof doesn't have the json member.
 func (vc VerifiableCredential) UnmarshalProofValue(target interface{}) error {
-	if asJSON, err := json.Marshal(vc.Proof); err != nil {
-		return err
-	} else {
-		return json.Unmarshal(asJSON, target)
-	}
+	return unmarshalAnySliceToTarget(vc.Proof, target)
 }
 
 // UnmarshalCredentialSubject unmarshalls the credentialSubject to the given credentialSubject type. Always pass a slice as target.
 func (vc VerifiableCredential) UnmarshalCredentialSubject(target interface{}) error {
-	if asJSON, err := json.Marshal(vc.CredentialSubject); err != nil {
+	return unmarshalAnySliceToTarget(vc.CredentialSubject, target)
+}
+
+// UnmarshalCredentialStatus unmarshalls the credentialStatus field to the provided target. Always pass a slice as target.
+func (vc VerifiableCredential) UnmarshalCredentialStatus(target any) error {
+	return unmarshalAnySliceToTarget(vc.CredentialStatus, target)
+}
+
+func unmarshalAnySliceToTarget(s []any, target any) error {
+	if asJSON, err := json.Marshal(s); err != nil {
 		return err
 	} else {
 		return json.Unmarshal(asJSON, target)
@@ -313,9 +393,8 @@ func CreateJWTVerifiableCredential(ctx context.Context, template VerifiableCrede
 		jws.TypeKey: "JWT",
 	}
 	claims := map[string]interface{}{
-		jwt.NotBeforeKey: template.IssuanceDate,
-		jwt.IssuerKey:    template.Issuer.String(),
-		jwt.SubjectKey:   subjectDID.String(),
+		jwt.IssuerKey:  template.Issuer.String(),
+		jwt.SubjectKey: subjectDID.String(),
 		"vc": map[string]interface{}{
 			"@context":          template.Context,
 			"type":              template.Type,
@@ -325,8 +404,16 @@ func CreateJWTVerifiableCredential(ctx context.Context, template VerifiableCrede
 	if template.ID != nil {
 		claims[jwt.JwtIDKey] = template.ID.String()
 	}
+	if template.IssuanceDate != nil {
+		claims[jwt.NotBeforeKey] = *template.IssuanceDate
+	}
 	if template.ExpirationDate != nil {
 		claims[jwt.ExpirationKey] = *template.ExpirationDate
+	}
+	if template.ValidFrom != nil || template.ValidUntil != nil {
+		// parseJWTCredential maps ValidFrom/ValidUntil to IssuanceDate/ExpirationDate,
+		// so a template using ValidFrom/ValidUntil would not match the final VC
+		return nil, errors.New("cannot use validFrom/validUntil to generate JWT-VCs")
 	}
 	token, err := signer(ctx, claims, headers)
 	if err != nil {

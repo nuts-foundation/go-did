@@ -43,13 +43,15 @@ func TestVerifiableCredential_JSONMarshalling(t *testing.T) {
 		raw := `{
 		  "id":"did:example:123#vc-1",
 		  "type":["VerifiableCredential", "custom"],
-		  "credentialSubject": {"name": "test"}
+		  "credentialSubject": {"name": "test"},
+		  "credentialStatus": {"id": "example.com", "type": "Custom"}
 		}`
 		err := json.Unmarshal([]byte(raw), &input)
 		require.NoError(t, err)
 		assert.Equal(t, "did:example:123#vc-1", input.ID.String())
 		assert.Equal(t, []ssi.URI{VerifiableCredentialTypeV1URI(), ssi.MustParseURI("custom")}, input.Type)
 		assert.Equal(t, []interface{}{map[string]interface{}{"name": "test"}}, input.CredentialSubject)
+		assert.Equal(t, []interface{}{map[string]interface{}{"id": "example.com", "type": "Custom"}}, input.CredentialStatus)
 		assert.Equal(t, JSONLDCredentialProofFormat, input.Format())
 		assert.Equal(t, raw, input.Raw())
 		assert.Nil(t, input.JWT())
@@ -62,7 +64,7 @@ func TestVerifiableCredential_JSONMarshalling(t *testing.T) {
 			input := VerifiableCredential{}
 			marshalled, err := json.Marshal(input)
 			require.NoError(t, err)
-			assert.Equal(t, "{\"@context\":null,\"credentialSubject\":null,\"issuanceDate\":\"0001-01-01T00:00:00Z\",\"issuer\":\"\",\"proof\":null,\"type\":null}", string(marshalled))
+			assert.Equal(t, "{\"@context\":null,\"credentialSubject\":null,\"issuer\":\"\",\"proof\":null,\"type\":null}", string(marshalled))
 		})
 	})
 	t.Run("JWT", func(t *testing.T) {
@@ -138,7 +140,53 @@ func TestVerifiableCredential_UnmarshalCredentialSubject(t *testing.T) {
 	})
 }
 
-func TestCredentialStatus(t *testing.T) {
+func TestVerifiableCredential_UnmarshalCredentialStatus(t *testing.T) {
+	type CustomCredentialStatus struct {
+		Id          string `json:"id,omitempty"`
+		Type        string `json:"type,omitempty"`
+		CustomField string `json:"customField,omitempty"`
+	}
+	expectedJSON := `
+			{ "credentialStatus": {
+				"id": "not a uri but doesn't fail",
+				"type": "CustomType",
+				"customField": "not empty"
+			  }
+			}`
+	// custom status that contains more fields than CredentialStatus
+	cred := VerifiableCredential{}
+	require.NoError(t, json.Unmarshal([]byte(expectedJSON), &cred))
+	var target []CustomCredentialStatus
+
+	err := cred.UnmarshalCredentialStatus(&target)
+
+	assert.NoError(t, err)
+	require.Len(t, target, 1)
+	assert.Equal(t, "CustomType", target[0].Type)
+	assert.Equal(t, "not empty", target[0].CustomField)
+}
+
+func TestVerifiableCredential_CredentialStatuses(t *testing.T) {
+	expectedJSON := `
+			{ "credentialStatus": {
+				"id": "valid.uri",
+				"type": "CustomType",
+				"customField": "not empty"
+			  }
+			}`
+	cred := VerifiableCredential{}
+	require.NoError(t, json.Unmarshal([]byte(expectedJSON), &cred))
+
+	statuses, err := cred.CredentialStatuses()
+
+	assert.NoError(t, err)
+	require.Len(t, statuses, 1)
+	assert.Equal(t, ssi.MustParseURI("valid.uri"), statuses[0].ID)
+	assert.Equal(t, "CustomType", statuses[0].Type)
+	assert.NotEmpty(t, statuses[0].Raw())
+}
+
+func TestCredentialStatus_UnmarshalJSON(t *testing.T) {
 	t.Run("can unmarshal JWT VC Presentation Profile JWT-VC example", func(t *testing.T) {
 		// CredentialStatus example taken from https://identity.foundation/jwt-vc-presentation-profile/#vc-jwt
 		// Regression: earlier defined credentialStatus.id as url.URL, which breaks since it's specified as URI by the core specification.
@@ -154,7 +202,26 @@ func TestCredentialStatus(t *testing.T) {
 		require.NoError(t, err)
 
 		assert.Equal(t, "urn:uuid:7facf41c-1dc5-486b-87e6-587d015e76d7?bit-index=10", actual.ID.String())
+		assert.Greater(t, len(actual.raw), 1)
 	})
+}
+
+func TestCredentialStatus_Raw(t *testing.T) {
+	orig := CredentialStatus{
+		ID:   ssi.MustParseURI("something"),
+		Type: "statusType",
+	}
+	bs, _ := json.Marshal(orig)
+
+	var remarshalled CredentialStatus
+	require.NoError(t, json.Unmarshal(bs, &remarshalled))
+
+	raw := remarshalled.Raw()
+	require.Greater(t, len(raw), 1) // make sure raw exists, and we do not end up creating a new slice
+
+	assert.Equal(t, raw, remarshalled.raw)
+	raw[0] = 'x' // was '{'
+	assert.NotEqual(t, raw, remarshalled.raw)
 }
 
 func TestVerifiableCredential_UnmarshalProof(t *testing.T) {
@@ -334,7 +401,7 @@ func TestCreateJWTVerifiableCredential(t *testing.T) {
 			VerifiableCredentialTypeV1URI(),
 			ssi.MustParseURI("https://example.com/custom"),
 		},
-		IssuanceDate:   issuanceDate,
+		IssuanceDate:   &issuanceDate,
 		ExpirationDate: &expirationDate,
 		CredentialSubject: []interface{}{
 			map[string]interface{}{
@@ -343,15 +410,22 @@ func TestCreateJWTVerifiableCredential(t *testing.T) {
 		},
 		Issuer: issuerDID.URI(),
 	}
+	captureFn := func(claims *map[string]any, headers *map[string]any) func(_ context.Context, c map[string]interface{}, h map[string]interface{}) (string, error) {
+		return func(_ context.Context, c map[string]interface{}, h map[string]interface{}) (string, error) {
+			if claims != nil {
+				*claims = c
+			}
+			if headers != nil {
+				*headers = h
+			}
+			return jwtCredential, nil
+		}
+	}
 	ctx := context.Background()
 	t.Run("all properties", func(t *testing.T) {
 		var claims map[string]interface{}
 		var headers map[string]interface{}
-		_, err := CreateJWTVerifiableCredential(ctx, template, func(_ context.Context, c map[string]interface{}, h map[string]interface{}) (string, error) {
-			claims = c
-			headers = h
-			return jwtCredential, nil
-		})
+		_, err := CreateJWTVerifiableCredential(ctx, template, captureFn(&claims, &headers))
 		assert.NoError(t, err)
 		assert.Equal(t, issuerDID.String(), claims[jwt.IssuerKey])
 		assert.Equal(t, subjectDID.String(), claims[jwt.SubjectKey])
@@ -366,16 +440,46 @@ func TestCreateJWTVerifiableCredential(t *testing.T) {
 		assert.Equal(t, map[string]interface{}{"typ": "JWT"}, headers)
 	})
 	t.Run("only mandatory properties", func(t *testing.T) {
-		minimumTemplate := template
-		minimumTemplate.ExpirationDate = nil
-		minimumTemplate.ID = nil
+		minimumTemplate := VerifiableCredential{CredentialSubject: template.CredentialSubject}
 		var claims map[string]interface{}
-		_, err := CreateJWTVerifiableCredential(ctx, minimumTemplate, func(_ context.Context, c map[string]interface{}, _ map[string]interface{}) (string, error) {
-			claims = c
-			return jwtCredential, nil
-		})
+		_, err := CreateJWTVerifiableCredential(ctx, minimumTemplate, captureFn(&claims, nil))
 		assert.NoError(t, err)
+		assert.Nil(t, claims[jwt.NotBeforeKey])
 		assert.Nil(t, claims[jwt.ExpirationKey])
 		assert.Nil(t, claims[jwt.JwtIDKey])
 	})
+	t.Run("error - cannot use validFrom", func(t *testing.T) {
+		template := VerifiableCredential{
+			CredentialSubject: template.CredentialSubject,
+			ValidFrom:         &issuanceDate,
+		}
+		_, err := CreateJWTVerifiableCredential(ctx, template, captureFn(nil, nil))
+		assert.EqualError(t, err, "cannot use validFrom/validUntil to generate JWT-VCs")
+	})
+	t.Run("error - cannot use validUntil", func(t *testing.T) {
+		template := VerifiableCredential{
+			CredentialSubject: template.CredentialSubject,
+			ValidUntil:        &expirationDate,
+		}
+		_, err := CreateJWTVerifiableCredential(ctx, template, captureFn(nil, nil))
+		assert.EqualError(t, err, "cannot use validFrom/validUntil to generate JWT-VCs")
+	})
+}
+
+func TestVerifiableCredential_ValidAt(t *testing.T) {
+	lll := time.Date(1999, 0, 0, 0, 0, 0, 0, time.UTC)
+	hhh := time.Date(2001, 0, 0, 0, 0, 0, 0, time.UTC)
+
+	// no validity period is always true; includes missing IssuanceDate(.IsZero() == true)
+	assert.True(t, VerifiableCredential{}.ValidAt(time.Now()))
+
+	// valid on bounds
+	assert.True(t, VerifiableCredential{IssuanceDate: &lll, ValidFrom: &lll}.ValidAt(lll))
+	assert.True(t, VerifiableCredential{ExpirationDate: &lll, ValidUntil: &lll}.ValidAt(lll))
+
+	// invalid
+	assert.False(t, VerifiableCredential{IssuanceDate: &hhh, ValidFrom: &lll}.ValidAt(lll))
+	assert.False(t, VerifiableCredential{IssuanceDate: &lll, ValidFrom: &hhh}.ValidAt(lll))
+	assert.False(t, VerifiableCredential{ExpirationDate: &hhh, ValidUntil: &lll}.ValidAt(hhh))
+	assert.False(t, VerifiableCredential{ExpirationDate: &lll, ValidUntil: &hhh}.ValidAt(hhh))
 }
