@@ -408,6 +408,10 @@ func TestCreateJWTVerifiableCredential(t *testing.T) {
 				"id": subjectDID.String(),
 			},
 		},
+		CredentialStatus: []any{CredentialStatus{
+			ID:   ssi.MustParseURI("did:example:something"),
+			Type: "test",
+		}},
 		Issuer: issuerDID.URI(),
 	}
 	captureFn := func(claims *map[string]any, headers *map[string]any) func(_ context.Context, c map[string]interface{}, h map[string]interface{}) (string, error) {
@@ -436,6 +440,7 @@ func TestCreateJWTVerifiableCredential(t *testing.T) {
 			"credentialSubject": template.CredentialSubject,
 			"@context":          template.Context,
 			"type":              template.Type,
+			"credentialStatus":  template.CredentialStatus,
 		}, claims["vc"])
 		assert.Equal(t, map[string]interface{}{"typ": "JWT"}, headers)
 	})

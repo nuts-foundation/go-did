@@ -415,6 +415,9 @@ func CreateJWTVerifiableCredential(ctx context.Context, template VerifiableCrede
 		// so a template using ValidFrom/ValidUntil would not match the final VC
 		return nil, errors.New("cannot use validFrom/validUntil to generate JWT-VCs")
 	}
+	if template.CredentialStatus != nil {
+		claims["vc"].(map[string]any)["credentialStatus"] = template.CredentialStatus
+	}
 	token, err := signer(ctx, claims, headers)
 	if err != nil {
 		return nil, fmt.Errorf("unable to sign JWT credential: %w", err)
