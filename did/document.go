@@ -210,16 +210,6 @@ func (d *Document) AddCapabilityDelegation(v *VerificationMethod) {
 	d.CapabilityDelegation.Add(v)
 }
 
-func (d Document) MarshalJSON() ([]byte, error) {
-	type alias Document
-	tmp := alias(d)
-	if data, err := json.Marshal(tmp); err != nil {
-		return nil, err
-	} else {
-		return marshal.NormalizeDocument(data, marshal.Unplural(contextKey), marshal.Unplural(controllerKey))
-	}
-}
-
 func (d *Document) UnmarshalJSON(b []byte) error {
 	document, err := ParseDocument(string(b))
 	if err != nil {
@@ -275,31 +265,7 @@ type Service struct {
 	ServiceEndpoint interface{} `json:"serviceEndpoint,omitempty"`
 }
 
-func (s Service) MarshalJSON() ([]byte, error) {
-	type alias Service
-	tmp := alias(s)
-	if data, err := json.Marshal(tmp); err != nil {
-		return nil, err
-	} else {
-		return marshal.NormalizeDocument(data, marshal.Unplural(serviceEndpointKey))
-	}
-}
-
-func (s *Service) UnmarshalJSON(data []byte) error {
-	normalizedData, err := marshal.NormalizeDocument(data, pluralContext, marshal.PluralValueOrMap(serviceEndpointKey))
-	if err != nil {
-		return err
-	}
-	type alias Service
-	var result alias
-	if err := json.Unmarshal(normalizedData, &result); err != nil {
-		return err
-	}
-	*s = (Service)(result)
-	return nil
-}
-
-// Unmarshal unmarshalls the service endpoint into a domain-specific type.
+// UnmarshalServiceEndpoint unmarshalls the service endpoint into a domain-specific type.
 func (s Service) UnmarshalServiceEndpoint(target interface{}) error {
 	var valueToMarshal interface{}
 	if asSlice, ok := s.ServiceEndpoint.([]interface{}); ok && len(asSlice) == 1 {

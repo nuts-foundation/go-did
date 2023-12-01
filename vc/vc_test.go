@@ -62,9 +62,10 @@ func TestVerifiableCredential_JSONMarshalling(t *testing.T) {
 
 		t.Run("marshal empty VC", func(t *testing.T) {
 			input := VerifiableCredential{}
-			marshalled, err := json.Marshal(input)
+			actual, err := json.Marshal(input)
 			require.NoError(t, err)
-			assert.Equal(t, "{\"@context\":null,\"credentialSubject\":null,\"issuer\":\"\",\"proof\":null,\"type\":null}", string(marshalled))
+			const expected = "{\"@context\":null,\"credentialSubject\":null,\"issuer\":\"\",\"proof\":null,\"type\":null}"
+			assert.JSONEq(t, expected, string(actual))
 		})
 	})
 	t.Run("JWT", func(t *testing.T) {

@@ -83,5 +83,11 @@ Use `ParseVerifiableCredential(raw string)` and `ParseVerifiablePresentation(raw
 go get github.com/nuts-foundation/go-did
 ```
 
+## Testing
+
+```shell
+go test ./... -tags=jwx_es256k
+```
+
 ## State of the library
 We keep the API stable, breaking changes will only be introduced in new major versions.
