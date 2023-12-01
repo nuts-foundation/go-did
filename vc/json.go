@@ -8,6 +8,7 @@ const (
 	contextKey              = "@context"
 	typeKey                 = "type"
 	credentialSubjectKey    = "credentialSubject"
+	credentialStatusKey     = "credentialStatus"
 	proofKey                = "proof"
 	verifiableCredentialKey = "verifiableCredential"
 )
