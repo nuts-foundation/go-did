@@ -140,16 +140,16 @@ type VerifiableCredential struct {
 	Type []ssi.URI `json:"type"`
 	// Issuer refers to the party that issued the credential
 	Issuer ssi.URI `json:"issuer"`
-	// IssuanceDate is a rfc3339 formatted datetime. Has alias ValidFrom
+	// IssuanceDate is a rfc3339 formatted datetime. It is required, but may be replaced by alias ValidFrom
 	IssuanceDate *time.Time `json:"issuanceDate,omitempty"`
 	// ValidFrom is a rfc3339 formatted datetime. It is optional, and is mutually exclusive with IssuanceDate (not enforced).
-	// It's a forwards compatible alternative for IssuanceDate.
+	// It's a forwards compatible (vc data model v2) alternative for IssuanceDate.
 	// The jwt-vc 'nbf' field will unmarshal to IssuanceDate, which may not match with the JSON-LD definition of certain VCs.
 	ValidFrom *time.Time `json:"validFrom,omitempty"`
 	// ExpirationDate is a rfc3339 formatted datetime. Has alias ValidUntil. It is optional
 	ExpirationDate *time.Time `json:"expirationDate,omitempty"`
 	// ValidFrom is a rfc3339 formatted datetime. It is optional, and is mutually exclusive with ExpirationDate (not enforced).
-	// It's a forwards compatible alternative for ExpirationDate.
+	// It's a forwards compatible (vc data model v2) alternative for ExpirationDate.
 	// The jwt-vc 'exp' field will unmarshal to ExpirationDate, which may not match with the JSON-LD definition of certain VCs.
 	ValidUntil *time.Time `json:"validUntil,omitempty"`
 	// CredentialStatus holds information on how the credential can be revoked. It must be extracted using the UnmarshalCredentialStatus method and a custom type.
