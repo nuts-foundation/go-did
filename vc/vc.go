@@ -392,14 +392,15 @@ func CreateJWTVerifiableCredential(ctx context.Context, template VerifiableCrede
 	headers := map[string]interface{}{
 		jws.TypeKey: "JWT",
 	}
+	vcMap := map[string]interface{}{
+		"@context":          template.Context,
+		"type":              template.Type,
+		"credentialSubject": template.CredentialSubject,
+	}
 	claims := map[string]interface{}{
 		jwt.IssuerKey:  template.Issuer.String(),
 		jwt.SubjectKey: subjectDID.String(),
-		"vc": map[string]interface{}{
-			"@context":          template.Context,
-			"type":              template.Type,
-			"credentialSubject": template.CredentialSubject,
-		},
+		"vc":           vcMap,
 	}
 	if template.ID != nil {
 		claims[jwt.JwtIDKey] = template.ID.String()
@@ -416,7 +417,7 @@ func CreateJWTVerifiableCredential(ctx context.Context, template VerifiableCrede
 		return nil, errors.New("cannot use validFrom/validUntil to generate JWT-VCs")
 	}
 	if template.CredentialStatus != nil {
-		claims["vc"].(map[string]any)["credentialStatus"] = template.CredentialStatus
+		vcMap["credentialStatus"] = template.CredentialStatus
 	}
 	token, err := signer(ctx, claims, headers)
 	if err != nil {
