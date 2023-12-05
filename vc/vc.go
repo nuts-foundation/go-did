@@ -280,7 +280,11 @@ func (vc VerifiableCredential) MarshalJSON() ([]byte, error) {
 	// Must be a JSON-LD credential
 	type alias VerifiableCredential
 	tmp := alias(vc)
-	return json.Marshal(tmp)
+	if data, err := json.Marshal(tmp); err != nil {
+		return nil, err
+	} else {
+		return marshal.NormalizeDocument(data, pluralContext, marshal.Unplural(typeKey), marshal.Unplural(credentialSubjectKey), marshal.Unplural(credentialStatusKey), marshal.Unplural(proofKey))
+	}
 }
 
 func (vc *VerifiableCredential) UnmarshalJSON(b []byte) error {

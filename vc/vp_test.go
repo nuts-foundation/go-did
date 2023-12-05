@@ -68,6 +68,34 @@ func TestVerifiablePresentation_MarshalJSON(t *testing.T) {
 			assert.Contains(t, string(bytes), "\"proof\":{")
 			assert.Contains(t, string(bytes), "\"verifiableCredential\":{")
 		})
+		t.Run("ok - multiple credential and proof", func(t *testing.T) {
+			input := VerifiablePresentation{
+				VerifiableCredential: []VerifiableCredential{
+					{
+						Type: []ssi.URI{VerifiableCredentialTypeV1URI()},
+					},
+					{
+						Type: []ssi.URI{VerifiableCredentialTypeV1URI()},
+					},
+				},
+				Proof: []interface{}{
+					JSONWebSignature2020Proof{
+						Jws: "",
+					},
+					JSONWebSignature2020Proof{
+						Jws: "",
+					},
+				},
+			}
+
+			bytes, err := json.Marshal(input)
+
+			if !assert.NoError(t, err) {
+				return
+			}
+			assert.Contains(t, string(bytes), "\"proof\":[")
+			assert.Contains(t, string(bytes), "\"verifiableCredential\":[")
+		})
 	})
 
 }
