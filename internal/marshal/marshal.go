@@ -46,17 +46,12 @@ func Plural(key string) Normalizer {
 	}
 }
 
-// PluralValueOrMap returns a Normalizer that behaves like Plural but leaves maps as simply a map. In other words,
-// it only turns singular values into an array, except maps.
-func PluralValueOrMap(key string) Normalizer {
+// Unplural returns a Normalizer that converts arrays with a single value into a singular value. It is the opposite
+// of the Plural normalizer.
+func Unplural(key string) Normalizer {
 	return func(m map[string]interface{}) {
-		value := m[key]
-		if value == nil {
-			return
-		} else if _, isMap := value.(map[string]interface{}); isMap {
-			return
-		} else if _, isSlice := value.([]interface{}); !isSlice {
-			m[key] = []interface{}{m[key]}
+		if arr, _ := m[key].([]interface{}); len(arr) == 1 {
+			m[key] = arr[0]
 		}
 	}
 }

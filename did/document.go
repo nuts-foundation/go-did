@@ -210,6 +210,16 @@ func (d *Document) AddCapabilityDelegation(v *VerificationMethod) {
 	d.CapabilityDelegation.Add(v)
 }
 
+func (d Document) MarshalJSON() ([]byte, error) {
+	type alias Document
+	tmp := alias(d)
+	if data, err := json.Marshal(tmp); err != nil {
+		return nil, err
+	} else {
+		return marshal.NormalizeDocument(data, marshal.Unplural(contextKey), marshal.Unplural(controllerKey))
+	}
+}
+
 func (d *Document) UnmarshalJSON(b []byte) error {
 	document, err := ParseDocument(string(b))
 	if err != nil {

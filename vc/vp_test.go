@@ -65,8 +65,8 @@ func TestVerifiablePresentation_MarshalJSON(t *testing.T) {
 			if !assert.NoError(t, err) {
 				return
 			}
-			assert.Contains(t, string(bytes), "\"proof\":[{")
-			assert.Contains(t, string(bytes), "\"verifiableCredential\":[{")
+			assert.Contains(t, string(bytes), "\"proof\":{")
+			assert.Contains(t, string(bytes), "\"verifiableCredential\":{")
 		})
 	})
 
