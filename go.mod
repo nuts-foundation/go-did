@@ -4,7 +4,7 @@ go 1.19
 
 require (
 	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.2.0
-	github.com/lestrrat-go/jwx/v2 v2.0.18
+	github.com/lestrrat-go/jwx/v2 v2.0.19
 	github.com/multiformats/go-multibase v0.2.0
 	github.com/shengdoushi/base58 v1.0.0
 	github.com/stretchr/testify v1.8.4
