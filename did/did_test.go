@@ -134,15 +134,20 @@ func TestDID_Empty(t *testing.T) {
 }
 
 func TestDID_URI(t *testing.T) {
-	id, err := ParseDID("did:nuts:123")
-
-	if !assert.NoError(t, err) {
-		return
+	testCases := []string{
+		"did:nuts:123",
+		"did:web:example.com",
+		"did:web:example.com:123",
+		"did:web:example.com%3A:8443:123",
 	}
-
-	uri := id.URI()
-
-	assert.Equal(t, id.String(), uri.String())
+	for _, tc := range testCases {
+		t.Run(tc, func(t *testing.T) {
+			id, err := ParseDID(tc)
+			require.NoError(t, err)
+			uri := id.URI()
+			assert.Equal(t, tc, uri.String())
+		})
+	}
 }
 
 func TestError(t *testing.T) {
