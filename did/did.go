@@ -87,7 +87,7 @@ func (d DID) URI() ssi.URI {
 	return ssi.URI{
 		URL: url.URL{
 			Scheme: "did",
-			Opaque: fmt.Sprintf("%s:%s", d.Method, url.PathEscape(d.ID)),
+			Opaque: fmt.Sprintf("%s:%s", d.Method, d.ID),
 		},
 	}
 }
