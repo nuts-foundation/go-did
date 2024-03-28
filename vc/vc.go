@@ -174,6 +174,26 @@ func (vc VerifiableCredential) JWT() jwt.Token {
 	return token
 }
 
+// ValidAt checks that t is within the validity window of the credential.
+// The skew parameter allows compensating for some clock skew (set to 0 for strict validation).
+// Return true if
+// - t+skew >= IssuanceDate
+// - t-skew <= ExpirationDate
+// For any value that is missing, the evaluation defaults to true.
+func (vc VerifiableCredential) ValidAt(t time.Time, skew time.Duration) bool {
+	// IssuanceDate is a required field, but will default to the zero value when missing. (when ValidFrom != nil)
+	// t > IssuanceDate
+	if t.Add(skew).Before(vc.IssuanceDate) {
+		return false
+	}
+	// t < ExpirationDate
+	if vc.ExpirationDate != nil && t.Add(-skew).After(*vc.ExpirationDate) {
+		return false
+	}
+	// valid
+	return true
+}
+
 // CredentialStatus contains the required fields ID and Type, and the raw data for unmarshalling into a custom type.
 type CredentialStatus struct {
 	ID   ssi.URI `json:"id"`

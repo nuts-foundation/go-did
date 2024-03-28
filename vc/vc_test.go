@@ -452,3 +452,21 @@ func TestCreateJWTVerifiableCredential(t *testing.T) {
 		assert.Nil(t, claims[jwt.JwtIDKey])
 	})
 }
+func TestVerifiableCredential_ValidAt(t *testing.T) {
+	low := time.Now()
+	mid := low.Add(time.Second)
+	high := mid.Add(time.Second)
+	skew := 3 * time.Second // > high - low
+
+	// test bounds
+	assert.True(t, VerifiableCredential{}.ValidAt(time.Now(), 0))                                   // valid when timestamps are missing
+	assert.True(t, VerifiableCredential{IssuanceDate: low, ExpirationDate: &high}.ValidAt(mid, 0))  // valid if in the middle
+	assert.False(t, VerifiableCredential{IssuanceDate: low, ExpirationDate: &mid}.ValidAt(high, 0)) // too high
+	assert.False(t, VerifiableCredential{IssuanceDate: mid, ExpirationDate: &high}.ValidAt(low, 0)) // too low
+
+	// with skew everything becomes valid
+	assert.True(t, VerifiableCredential{}.ValidAt(time.Now(), skew))
+	assert.True(t, VerifiableCredential{IssuanceDate: low, ExpirationDate: &high}.ValidAt(mid, skew))
+	assert.True(t, VerifiableCredential{IssuanceDate: low, ExpirationDate: &mid}.ValidAt(high, skew))
+	assert.True(t, VerifiableCredential{IssuanceDate: mid, ExpirationDate: &high}.ValidAt(low, skew))
+}
