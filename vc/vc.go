@@ -89,8 +89,7 @@ func parseJWTCredential(raw string) (*VerifiableCredential, error) {
 	}
 	// parse nbf
 	if _, ok := token.Get(jwt.NotBeforeKey); ok {
-		nbf := token.NotBefore()
-		result.IssuanceDate = &nbf
+		result.IssuanceDate = token.NotBefore()
 	}
 	// parse sub
 	if token.Subject() != "" {
@@ -140,18 +139,10 @@ type VerifiableCredential struct {
 	Type []ssi.URI `json:"type"`
 	// Issuer refers to the party that issued the credential
 	Issuer ssi.URI `json:"issuer"`
-	// IssuanceDate is a rfc3339 formatted datetime. It is required, but may be replaced by alias ValidFrom
-	IssuanceDate *time.Time `json:"issuanceDate,omitempty"`
-	// ValidFrom is a rfc3339 formatted datetime. It is optional, and is mutually exclusive with IssuanceDate (not enforced).
-	// It's a forwards compatible (vc data model v2) alternative for IssuanceDate.
-	// The jwt-vc 'nbf' field will unmarshal to IssuanceDate, which may not match with the JSON-LD definition of certain VCs.
-	ValidFrom *time.Time `json:"validFrom,omitempty"`
-	// ExpirationDate is a rfc3339 formatted datetime. Has alias ValidUntil. It is optional
+	// IssuanceDate is a rfc3339 formatted datetime.
+	IssuanceDate time.Time `json:"issuanceDate"`
+	// ExpirationDate is a rfc3339 formatted datetime. It is optional
 	ExpirationDate *time.Time `json:"expirationDate,omitempty"`
-	// ValidFrom is a rfc3339 formatted datetime. It is optional, and is mutually exclusive with ExpirationDate (not enforced).
-	// It's a forwards compatible (vc data model v2) alternative for ExpirationDate.
-	// The jwt-vc 'exp' field will unmarshal to ExpirationDate, which may not match with the JSON-LD definition of certain VCs.
-	ValidUntil *time.Time `json:"validUntil,omitempty"`
 	// CredentialStatus holds information on how the credential can be revoked. It must be extracted using the UnmarshalCredentialStatus method and a custom type.
 	CredentialStatus []any `json:"credentialStatus,omitempty"`
 	// CredentialSubject holds the actual data for the credential. It must be extracted using the UnmarshalCredentialSubject method and a custom type.
@@ -186,25 +177,17 @@ func (vc VerifiableCredential) JWT() jwt.Token {
 // ValidAt checks that t is within the validity window of the credential.
 // The skew parameter allows compensating for some clock skew (set to 0 for strict validation).
 // Return true if
-// - t+skew >= IssuanceDate and ValidFrom
-// - t-skew <= ExpirationDate and ValidUntil
-// For any value that is missing, the evaluation defaults to true
+// - t+skew >= IssuanceDate
+// - t-skew <= ExpirationDate
+// For any value that is missing, the evaluation defaults to true.
 func (vc VerifiableCredential) ValidAt(t time.Time, skew time.Duration) bool {
 	// IssuanceDate is a required field, but will default to the zero value when missing. (when ValidFrom != nil)
 	// t > IssuanceDate
-	if vc.IssuanceDate != nil && t.Add(skew).Before(*vc.IssuanceDate) {
-		return false
-	}
-	// t > ValidFrom
-	if vc.ValidFrom != nil && t.Add(skew).Before(*vc.ValidFrom) {
+	if t.Add(skew).Before(vc.IssuanceDate) {
 		return false
 	}
 	// t < ExpirationDate
 	if vc.ExpirationDate != nil && t.Add(-skew).After(*vc.ExpirationDate) {
-		return false
-	}
-	// t < ValidUntil
-	if vc.ValidUntil != nil && t.Add(-skew).After(*vc.ValidUntil) {
 		return false
 	}
 	// valid
@@ -400,23 +383,16 @@ func CreateJWTVerifiableCredential(ctx context.Context, template VerifiableCrede
 		"credentialSubject": template.CredentialSubject,
 	}
 	claims := map[string]interface{}{
-		jwt.IssuerKey:  template.Issuer.String(),
-		jwt.SubjectKey: subjectDID.String(),
-		"vc":           vcMap,
+		jwt.NotBeforeKey: template.IssuanceDate,
+		jwt.IssuerKey:    template.Issuer.String(),
+		jwt.SubjectKey:   subjectDID.String(),
+		"vc":             vcMap,
 	}
 	if template.ID != nil {
 		claims[jwt.JwtIDKey] = template.ID.String()
 	}
-	if template.IssuanceDate != nil {
-		claims[jwt.NotBeforeKey] = *template.IssuanceDate
-	}
 	if template.ExpirationDate != nil {
 		claims[jwt.ExpirationKey] = *template.ExpirationDate
-	}
-	if template.ValidFrom != nil || template.ValidUntil != nil {
-		// parseJWTCredential maps ValidFrom/ValidUntil to IssuanceDate/ExpirationDate,
-		// so a template using ValidFrom/ValidUntil would not match the final VC
-		return nil, errors.New("cannot use validFrom/validUntil to generate JWT-VCs")
 	}
 	if template.CredentialStatus != nil {
 		vcMap["credentialStatus"] = template.CredentialStatus
