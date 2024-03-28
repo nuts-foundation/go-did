@@ -183,28 +183,26 @@ func (vc VerifiableCredential) JWT() jwt.Token {
 	return token
 }
 
-// ValidAt checks that t is within the validity window of the credential.
-// The skew parameter allows compensating for some clock skew (set to 0 for strict validation).
-// Return true if
-// - t+skew >= IssuanceDate and ValidFrom
-// - t-skew <= ExpirationDate and ValidUntil
+// ValidAt returns true if
+// - t >= IssuanceDate and ValidFrom
+// - t <= ExpirationDate and ValidUntil
 // For any value that is missing, the evaluation defaults to true
-func (vc VerifiableCredential) ValidAt(t time.Time, skew time.Duration) bool {
+func (vc VerifiableCredential) ValidAt(t time.Time) bool {
 	// IssuanceDate is a required field, but will default to the zero value when missing. (when ValidFrom != nil)
 	// t > IssuanceDate
-	if vc.IssuanceDate != nil && t.Add(skew).Before(*vc.IssuanceDate) {
+	if vc.IssuanceDate != nil && t.Before(*vc.IssuanceDate) {
 		return false
 	}
 	// t > ValidFrom
-	if vc.ValidFrom != nil && t.Add(skew).Before(*vc.ValidFrom) {
+	if vc.ValidFrom != nil && t.Before(*vc.ValidFrom) {
 		return false
 	}
 	// t < ExpirationDate
-	if vc.ExpirationDate != nil && t.Add(-skew).After(*vc.ExpirationDate) {
+	if vc.ExpirationDate != nil && t.After(*vc.ExpirationDate) {
 		return false
 	}
 	// t < ValidUntil
-	if vc.ValidUntil != nil && t.Add(-skew).After(*vc.ValidUntil) {
+	if vc.ValidUntil != nil && t.After(*vc.ValidUntil) {
 		return false
 	}
 	// valid

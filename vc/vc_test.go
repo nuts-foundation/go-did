@@ -475,25 +475,17 @@ func TestCreateJWTVerifiableCredential(t *testing.T) {
 func TestVerifiableCredential_ValidAt(t *testing.T) {
 	lll := time.Date(1999, 0, 0, 0, 0, 0, 0, time.UTC)
 	hhh := time.Date(2001, 0, 0, 0, 0, 0, 0, time.UTC)
-	skew := time.Hour * 24 * 365 * 3 // 3 years, time difference is 2 years
 
 	// no validity period is always true; includes missing IssuanceDate(.IsZero() == true)
-	assert.True(t, VerifiableCredential{}.ValidAt(time.Now(), 0))
-	assert.True(t, VerifiableCredential{}.ValidAt(time.Now(), skew))
+	assert.True(t, VerifiableCredential{}.ValidAt(time.Now()))
 
 	// valid on bounds
-	assert.True(t, VerifiableCredential{IssuanceDate: &lll, ValidFrom: &lll}.ValidAt(lll, 0))
-	assert.True(t, VerifiableCredential{ExpirationDate: &lll, ValidUntil: &lll}.ValidAt(lll, 0))
+	assert.True(t, VerifiableCredential{IssuanceDate: &lll, ValidFrom: &lll}.ValidAt(lll))
+	assert.True(t, VerifiableCredential{ExpirationDate: &lll, ValidUntil: &lll}.ValidAt(lll))
 
 	// invalid
-	assert.False(t, VerifiableCredential{IssuanceDate: &hhh, ValidFrom: &lll}.ValidAt(lll, 0))
-	assert.False(t, VerifiableCredential{IssuanceDate: &lll, ValidFrom: &hhh}.ValidAt(lll, 0))
-	assert.False(t, VerifiableCredential{ExpirationDate: &hhh, ValidUntil: &lll}.ValidAt(hhh, 0))
-	assert.False(t, VerifiableCredential{ExpirationDate: &lll, ValidUntil: &hhh}.ValidAt(hhh, 0))
-
-	// invalid made valid
-	assert.True(t, VerifiableCredential{IssuanceDate: &hhh, ValidFrom: &lll}.ValidAt(lll, skew))
-	assert.True(t, VerifiableCredential{IssuanceDate: &lll, ValidFrom: &hhh}.ValidAt(lll, skew))
-	assert.True(t, VerifiableCredential{ExpirationDate: &hhh, ValidUntil: &lll}.ValidAt(hhh, skew))
-	assert.True(t, VerifiableCredential{ExpirationDate: &lll, ValidUntil: &hhh}.ValidAt(hhh, skew))
+	assert.False(t, VerifiableCredential{IssuanceDate: &hhh, ValidFrom: &lll}.ValidAt(lll))
+	assert.False(t, VerifiableCredential{IssuanceDate: &lll, ValidFrom: &hhh}.ValidAt(lll))
+	assert.False(t, VerifiableCredential{ExpirationDate: &hhh, ValidUntil: &lll}.ValidAt(hhh))
+	assert.False(t, VerifiableCredential{ExpirationDate: &lll, ValidUntil: &hhh}.ValidAt(hhh))
 }
