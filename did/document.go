@@ -340,7 +340,7 @@ func NewVerificationMethod(id DIDURL, keyType ssi.KeyType, controller DID, key c
 		}
 		vm.PublicKeyJwk = jwkAsMap
 	}
-	if keyType == ssi.ED25519VerificationKey2018 {
+	if keyType == ssi.ED25519VerificationKey2018 || keyType == ssi.ED25519VerificationKey2020  {
 		ed25519Key, ok := key.(ed25519.PublicKey)
 		if !ok {
 			return nil, errors.New("wrong key type")
@@ -371,7 +371,7 @@ func (v VerificationMethod) JWK() (jwk.Key, error) {
 func (v VerificationMethod) PublicKey() (crypto.PublicKey, error) {
 	var pubKey crypto.PublicKey
 	switch v.Type {
-	case ssi.ED25519VerificationKey2018:
+	case ssi.ED25519VerificationKey2018, ssi.ED25519VerificationKey2020:
 		var keyBytes []byte
 		var err error
 		if v.PublicKeyMultibase != "" {

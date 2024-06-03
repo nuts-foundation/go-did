@@ -7,8 +7,12 @@ type KeyType string
 const JsonWebKey2020 = KeyType("JsonWebKey2020")
 
 // ED25519VerificationKey2018 is the Ed25519VerificationKey2018 verification key type as specified here:
-// https://w3c-ccg.github.io/lds-ed25519-2018/
+// https://w3c-ccg.github.io/
 const ED25519VerificationKey2018 = KeyType("Ed25519VerificationKey2018")
+
+// ED25519VerificationKey2020 is the Ed25519VerificationKey2020 verification key type as specified here:
+// https://www.w3.org/TR/vc-di-eddsa/#ed25519verificationkey2020
+const ED25519VerificationKey2020 = KeyType("Ed25519VerificationKey2020")
 
 // ECDSASECP256K1VerificationKey2019 is the EcdsaSecp256k1VerificationKey2019 verification key type as specified here:
 // https://w3c-ccg.github.io/lds-ecdsa-secp256k1-2019/
