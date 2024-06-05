@@ -139,6 +139,19 @@ func Test_Document(t *testing.T) {
 		require.NotNil(t, publicKey)
 	})
 
+	t.Run("ED25519VerificationKey2020", func(t *testing.T) {
+		keyID := DIDURL{DID: actual.ID}
+		keyID.Fragment = "added-assertion-method-1"
+
+		pubKey, _, _ := ed25519.GenerateKey(rand.Reader)
+		vm, err := NewVerificationMethod(keyID, ssi.ED25519VerificationKey2020, actual.ID, pubKey)
+		require.NoError(t, err)
+
+		publicKey, err := vm.PublicKey()
+		require.NoError(t, err)
+		require.NotNil(t, publicKey)
+	})
+
 	t.Run("ECDSASECP256K1VerificationKey2019", func(t *testing.T) {
 		t.Run("generated key", func(t *testing.T) {
 			keyID := DIDURL{DID: actual.ID}
