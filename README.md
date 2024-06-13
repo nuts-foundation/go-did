@@ -31,7 +31,7 @@ doc := &did.Document{
 }
 
 // Add an assertionMethod
-keyID, _ =: did.ParseDIDURL("did:example:123#key-1")
+keyID, _ := did.ParseDIDURL("did:example:123#key-1")
 
 keyPair, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 verificationMethod, err := did.NewVerificationMethod(*keyID, did.JsonWebKey2020, did.DID{}, keyPair.Public())
