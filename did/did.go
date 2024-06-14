@@ -5,9 +5,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/nuts-foundation/go-did"
+	"math/big"
 	"net/url"
 	"strings"
+
+	ssi "github.com/nuts-foundation/go-did"
 )
 
 var _ fmt.Stringer = DID{}
@@ -15,16 +17,25 @@ var _ encoding.TextMarshaler = DID{}
 
 // DIDContextV1 contains the JSON-LD context for a DID Document
 const DIDContextV1 = "https://www.w3.org/ns/did/v1"
+const SECP256Recovery = "https://w3id.org/security/suites/secp256k1recovery-2020/v2"
 
 // DIDContextV1URI returns DIDContextV1 as a URI
 func DIDContextV1URI() ssi.URI {
 	return ssi.MustParseURI(DIDContextV1)
 }
 
+// SECP256RecoveryURI returns SECP256Recovery as a URI
+func SECP256RecoveryURI() ssi.URI {
+	return ssi.MustParseURI(SECP256Recovery)
+}
+
 // DID represent a Decentralized Identifier as specified by the DID Core specification (https://www.w3.org/TR/did-core/#identifier).
 type DID struct {
 	// Method is the DID method, e.g. "example".
 	Method string
+	// If the Method is blockchain and the chain id is neccessary use this.
+	// e.g. Method = "ethr", MethodID = "1"
+	MethodID *big.Int
 	// ID is the method-specific ID, in escaped form.
 	ID string
 	// DecodedID is the method-specific ID, in unescaped form.
