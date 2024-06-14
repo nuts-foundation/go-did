@@ -8,12 +8,14 @@ import (
 	"errors"
 	"fmt"
 
+	"strings"
+
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/lestrrat-go/jwx/v2/jwa"
 	"github.com/lestrrat-go/jwx/v2/jwk"
 	"github.com/multiformats/go-multibase"
-	"strings"
 
-	"github.com/nuts-foundation/go-did"
+	ssi "github.com/nuts-foundation/go-did"
 	"github.com/nuts-foundation/go-did/internal/marshal"
 	"github.com/shengdoushi/base58"
 )
@@ -299,6 +301,8 @@ type VerificationMethod struct {
 	// PublicKeyBase58 is deprecated and should not be used anymore. Use PublicKeyMultibase or PublicKeyJwk instead.
 	PublicKeyBase58 string                 `json:"publicKeyBase58,omitempty"`
 	PublicKeyJwk    map[string]interface{} `json:"publicKeyJwk,omitempty"`
+	// BlockchainAccountId can be used instead of public key when using smart contact based on DIDRegistry ERC1056.
+	BlockchainAccountId string `json:"blockchainAccountId,omitempty"`
 }
 
 // NewVerificationMethod is a convenience method to easily create verificationMethods based on a set of given params.
@@ -340,7 +344,7 @@ func NewVerificationMethod(id DIDURL, keyType ssi.KeyType, controller DID, key c
 		}
 		vm.PublicKeyJwk = jwkAsMap
 	}
-	if keyType == ssi.ED25519VerificationKey2018 || keyType == ssi.ED25519VerificationKey2020  {
+	if keyType == ssi.ED25519VerificationKey2018 || keyType == ssi.ED25519VerificationKey2020 {
 		ed25519Key, ok := key.(ed25519.PublicKey)
 		if !ok {
 			return nil, errors.New("wrong key type")
@@ -350,6 +354,14 @@ func NewVerificationMethod(id DIDURL, keyType ssi.KeyType, controller DID, key c
 			return nil, err
 		}
 		vm.PublicKeyMultibase = encodedKey
+	}
+
+	if keyType == ssi.ECDSASECP256K1RecoveryMethod2020 {
+		address := id.DID.ID
+		if common.HexToAddress(address) == (common.Address{}) || len(address) != 42 {
+			return nil, errors.New("invalid address")
+		}
+		vm.BlockchainAccountId = fmt.Sprintf("eip155:%d:%s", id.DID.MethodID, address)
 	}
 
 	return vm, nil
