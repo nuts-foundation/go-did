@@ -2,43 +2,78 @@ package main
 
 import (
 	"os"
+	"strings"
 )
 
 func main() {
-	err := os.WriteFile("../v1/vc/model.gen.go", []byte(generate("vc", verifiableCredential())), 0644)
-	if err != nil {
-		panic(err)
+	targets := []struct {
+		file string
+		pkg  string
+		def  ModelDefinition
+	}{
+		{
+			file: "../v1/vc/verifiable_credential.gen.go",
+			pkg:  "vc",
+			def:  verifiableCredential(),
+		},
+		{
+			file: "../v1/vc/issuer.gen.go",
+			pkg:  "vc",
+			def:  issuer(),
+		},
+		{
+			file: "../v1/vc/credential_subject.gen.go",
+			pkg:  "vc",
+			def:  credentialSubject(),
+		},
+		{
+			file: "../v1/did/model.gen.go",
+			pkg:  "did",
+			def:  didDocument(),
+		},
+	}
+	for _, target := range targets {
+		err := os.WriteFile(target.file, []byte(generate(target.pkg, target.def)), 0644)
+		if err != nil {
+			panic(err)
+		}
 	}
 }
 
-type TypeDefinition struct {
-	Name   string
-	Fields []FieldDefinition
+type ModelDefinition struct {
+	Name                    string
+	Fields                  []FieldDefinition
+	Imports                 []string
+	SupportLDSerialization  bool
+	SupportJWTSerialization bool
 }
 
 type FieldDefinition struct {
 	Name     string
 	JSONName string
 	IRI      string
+	JWTClaim string
 	Required bool
 	DocLink  string
 	GoType   string
 }
 
-func generate(pkg string, def TypeDefinition) string {
-	implType := "LD" + def.Name
+func generate(pkg string, def ModelDefinition) string {
 	buf := ""
 	buf += "package " + pkg + "\n\n"
 	buf += "\n"
-	buf += `import (
-	"github.com/nuts-foundation/go-did/v1/ld"
-	"time"
-)`
-	buf += "\n\n"
+	// Imports
+	buf += "import (\n"
+	for _, imp := range def.Imports {
+		buf += "\t" + imp + "\n"
+	}
+	if def.SupportJWTSerialization {
+		buf += "\t\"github.com/lestrrat-go/jwx/v2/jwt\"\n"
+	}
+	buf += ")\n"
+	buf += "\n"
 	// Interface type
 	buf += "type " + def.Name + " interface {\n"
-	buf += "\tld.Object\n"
-	buf += "\tContext() []interface{}\n"
 	for _, field := range def.Fields {
 		buf += "\t// " + field.Name + " as defined by " + field.DocLink + "\n"
 		if field.Required {
@@ -49,69 +84,39 @@ func generate(pkg string, def TypeDefinition) string {
 	}
 	buf += "}\n"
 	buf += "\n"
-	// Implementation type
-	buf += "var _ " + def.Name + " = &" + implType + "{}\n"
-	buf += "\n"
-	buf += "type " + implType + " struct {\n"
-	buf += "\tld.Object\n"
-	buf += "\tcontext []interface{}\n"
-	buf += "}\n"
-	buf += "\n"
-	// Fixed Context field
-	buf += "func (o " + implType + ") Context() []interface{} {\n"
-	buf += "\treturn o.context\n"
-	buf += "}\n\n"
-	// Type-specific fields
-	for _, field := range def.Fields {
-		returnType := field.GoType
-		if !field.Required {
-			returnType = "(bool, " + field.GoType + ")"
-		}
-		buf += "func (o " + implType + ") " + field.Name + "() " + returnType + " {\n"
-		if field.Required {
-			buf += "\tok, obj := o.Get(\"" + field.IRI + "\")\n"
-			buf += "\tif !ok {\n"
-			buf += "\t\treturn " + nilValue(field.GoType) + "\n"
-			buf += "\t}\n"
-			buf += "\treturn " + converterFunc(field.GoType) + "(obj)\n"
-		} else {
-			buf += "\tok, obj := o.Get(\"" + field.IRI + "\")\n"
-			buf += "\tif !ok {\n"
-			buf += "\t\treturn false, " + converterFunc(field.GoType) + "(nil)\n"
-			buf += "\t}\n"
-			buf += "\treturn true, " + converterFunc(field.GoType) + "(obj)\n"
-		}
-		buf += "}\n\n"
+	if def.SupportLDSerialization {
+		buf += generateLDSerializer(def, "LD"+def.Name)
+	}
+	if def.SupportJWTSerialization {
+		buf += generateJWTSerializer(def, "JWT"+def.Name)
 	}
 	return buf
 }
 
-func nilValue(goType string) string {
-	switch goType {
-	case "ld.IDObject":
-		return "ld.IDObject{}"
-	case "time.Time":
-		return "time.Time{}"
-	default:
-		return "nil"
-	}
-}
-
 func converterFunc(goType string) string {
-	switch goType {
-	case "ld.Object":
-		return "ld.ToObject"
-	case "[]ld.Object":
-		return "ld.ToObjects"
-	case "ld.IDObject":
-		return "ld.NewIDObject"
-	case "time.Time":
-		return "ld.ToTime"
-	case "[]string":
-		return "ld.ToStrings"
-	case "[]interface{}":
-		return "ld.ToInterfaces"
-	default:
-		return "MISSING_CONVERTER"
+	isSlice := goType[0] == '['
+	parts := strings.Split(goType, ".")
+	name := parts[len(parts)-1]
+	// Remove non-alphanumeric characters
+	name = strings.Map(func(r rune) rune {
+		if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') {
+			return r
+		}
+		return -1
+	}, name)
+
+	var pkg string
+	if len(parts) > 1 || strings.ToLower(name) == name {
+		pkg = "ld"
 	}
+
+	if isSlice {
+		name += "s"
+	}
+	// First character to upper
+	name = "To" + strings.ToUpper(name[:1]) + name[1:]
+	if pkg != "" {
+		name = pkg + "." + name
+	}
+	return name
 }

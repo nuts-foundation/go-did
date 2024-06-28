@@ -27,14 +27,6 @@ func ToTime(obj interface{}) time.Time {
 	return result
 }
 
-func NewIDObject(obj interface{}) IDObject {
-	return IDObject{
-		map[string]interface{}{
-			"@id": obj,
-		},
-	}
-}
-
 func getValue(input interface{}) interface{} {
 	asSlice, ok := input.([]interface{})
 	if !ok || len(asSlice) == 0 {

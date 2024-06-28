@@ -1,18 +1,20 @@
 package main
 
-func didDocument() TypeDefinition {
-	return TypeDefinition{
+func didDocument() ModelDefinition {
+	return ModelDefinition{
 		Name: "Document",
+		Imports: []string{
+			`"github.com/nuts-foundation/go-did/v1/ld"`,
+			`ssi "github.com/nuts-foundation/go-did"`,
+			`"github.com/nuts-foundation/go-did/did"`,
+			`"github.com/nuts-foundation/go-did/v1/ld"`,
+		},
 		Fields: []FieldDefinition{
-			{
-				Name:     "Context",
-				JSONName: "@context",
-				GoType:   "[]interface",
-			},
 			{
 				Name:     "ID",
 				JSONName: "id",
 				GoType:   "DID",
+				Required: true,
 			},
 			{
 				Name:     "AlsoKnownAs",

@@ -2,10 +2,14 @@ package ld
 
 import "net/url"
 
+type IDObject interface {
+	Object
+	ID() (bool, *url.URL)
+}
+
 type Object interface {
 	Set(string, interface{}) error
 	Get(string) (bool, interface{})
-	ID() (bool, *url.URL)
 }
 
 var _ Object = &BaseObject{}
@@ -34,14 +38,25 @@ func (o BaseObject) Get(s string) (bool, interface{}) {
 	return ok, v
 }
 
-// IDObject is an Object which is guaranteed to have an ID property.
-type IDObject struct {
+// IDContainer is an Object which is guaranteed to have an ID property.
+type IDContainer struct {
 	BaseObject
 }
 
-func (U IDObject) ID() *url.URL {
+func (U IDContainer) ID() *url.URL {
 	ok, u := U.BaseObject.ID()
 	if !ok {
+		return &url.URL{}
+	}
+	return u
+}
+
+func ToURL(obj interface{}) *url.URL {
+	if obj == nil {
+		return &url.URL{}
+	}
+	u, err := url.Parse(obj.(string))
+	if err != nil {
 		return &url.URL{}
 	}
 	return u
