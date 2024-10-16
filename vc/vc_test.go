@@ -64,7 +64,7 @@ func TestVerifiableCredential_JSONMarshalling(t *testing.T) {
 			input := VerifiableCredential{}
 			actual, err := json.Marshal(input)
 			require.NoError(t, err)
-			const expected = "{\"@context\":null,\"credentialSubject\":null,\"issuanceDate\":\"0001-01-01T00:00:00Z\",\"issuer\":\"\",\"proof\":null,\"type\":null}"
+			const expected = "{\"@context\":null,\"credentialSubject\":null,\"issuanceDate\":\"0001-01-01T00:00:00Z\",\"issuer\":\"\",\"type\":null}"
 			assert.JSONEq(t, expected, string(actual))
 		})
 	})
@@ -276,12 +276,6 @@ func TestVerifiableCredential_Proofs(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Len(t, proofs, 2)
 		assert.Equal(t, ssi.JsonWebSignature2020, proofs[0].Type)
-	})
-	t.Run("empty", func(t *testing.T) {
-		bs, err := json.Marshal(VerifiableCredential{})
-		require.NoError(t, err)
-		assert.NotContains(t, string(bs), "proof")
-		assert.Contains(t, string(bs), "type") // sanity check
 	})
 }
 
