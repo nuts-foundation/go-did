@@ -277,6 +277,12 @@ func TestVerifiableCredential_Proofs(t *testing.T) {
 		assert.Len(t, proofs, 2)
 		assert.Equal(t, ssi.JsonWebSignature2020, proofs[0].Type)
 	})
+	t.Run("empty", func(t *testing.T) {
+		bs, err := json.Marshal(VerifiableCredential{})
+		require.NoError(t, err)
+		assert.NotContains(t, string(bs), "proof")
+		assert.Contains(t, string(bs), "type") // sanity check
+	})
 }
 
 func TestVerifiableCredential_IsType(t *testing.T) {

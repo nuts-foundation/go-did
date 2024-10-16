@@ -148,7 +148,7 @@ type VerifiableCredential struct {
 	// CredentialSubject holds the actual data for the credential. It must be extracted using the UnmarshalCredentialSubject method and a custom type.
 	CredentialSubject []interface{} `json:"credentialSubject"`
 	// Proof contains the cryptographic proof(s). It must be extracted using the Proofs method or UnmarshalProofValue method for non-generic proof fields.
-	Proof []interface{} `json:"proof"`
+	Proof []interface{} `json:"proof,omitempty"`
 
 	format string
 	raw    string
