@@ -64,7 +64,7 @@ func TestVerifiableCredential_JSONMarshalling(t *testing.T) {
 			input := VerifiableCredential{}
 			actual, err := json.Marshal(input)
 			require.NoError(t, err)
-			const expected = "{\"@context\":null,\"credentialSubject\":null,\"issuanceDate\":\"0001-01-01T00:00:00Z\",\"issuer\":\"\",\"proof\":null,\"type\":null}"
+			const expected = "{\"@context\":null,\"credentialSubject\":null,\"issuanceDate\":\"0001-01-01T00:00:00Z\",\"issuer\":\"\",\"type\":null}"
 			assert.JSONEq(t, expected, string(actual))
 		})
 	})
