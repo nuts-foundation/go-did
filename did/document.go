@@ -297,8 +297,9 @@ type VerificationMethod struct {
 	Controller         DID         `json:"controller,omitempty"`
 	PublicKeyMultibase string      `json:"publicKeyMultibase,omitempty"`
 	// PublicKeyBase58 is deprecated and should not be used anymore. Use PublicKeyMultibase or PublicKeyJwk instead.
-	PublicKeyBase58 string                 `json:"publicKeyBase58,omitempty"`
-	PublicKeyJwk    map[string]interface{} `json:"publicKeyJwk,omitempty"`
+	PublicKeyBase58      string                 `json:"publicKeyBase58,omitempty"`
+	PublicKeyJwk         map[string]interface{} `json:"publicKeyJwk,omitempty"`
+	additionalProperties map[string]interface{}
 }
 
 // NewVerificationMethod is a convenience method to easily create verificationMethods based on a set of given params.
@@ -340,7 +341,7 @@ func NewVerificationMethod(id DIDURL, keyType ssi.KeyType, controller DID, key c
 		}
 		vm.PublicKeyJwk = jwkAsMap
 	}
-	if keyType == ssi.ED25519VerificationKey2018 || keyType == ssi.ED25519VerificationKey2020  {
+	if keyType == ssi.ED25519VerificationKey2018 || keyType == ssi.ED25519VerificationKey2020 {
 		ed25519Key, ok := key.(ed25519.PublicKey)
 		if !ok {
 			return nil, errors.New("wrong key type")
@@ -353,6 +354,69 @@ func NewVerificationMethod(id DIDURL, keyType ssi.KeyType, controller DID, key c
 	}
 
 	return vm, nil
+}
+
+func (v VerificationMethod) Get(propertyName string) (interface{}, bool) {
+	switch propertyName {
+	case "id":
+		return v.ID, true
+	case "type":
+		return v.Type, true
+	case "controller":
+		return v.Controller, true
+	case "publicKeyMultibase":
+		return v.PublicKeyMultibase, true
+	case "publicKeyBase58":
+		return v.PublicKeyBase58, true
+	case "publicKeyJwk":
+		return v.PublicKeyJwk, true
+	}
+	result, ok := v.additionalProperties[propertyName]
+	return result, ok
+}
+
+func (v *VerificationMethod) Set(propertyName string, value interface{}) error {
+	if v.additionalProperties == nil {
+		v.additionalProperties = make(map[string]interface{})
+	}
+	switch propertyName {
+	case "id":
+		if id, ok := value.(DIDURL); ok {
+			v.ID = id
+		} else {
+			return errors.New("invalid type for id")
+		}
+	case "type":
+		if keyType, ok := value.(ssi.KeyType); ok {
+			v.Type = keyType
+		} else {
+			return errors.New("invalid type for type")
+		}
+	case "controller":
+		if controller, ok := value.(DID); ok {
+			v.Controller = controller
+		} else {
+			return errors.New("invalid type for controller")
+		}
+	case "publicKeyMultibase":
+		if publicKeyMultibase, ok := value.(string); ok {
+			v.PublicKeyMultibase = publicKeyMultibase
+		}
+	case "publicKeyBase58":
+		if publicKeyBase58, ok := value.(string); ok {
+			v.PublicKeyBase58 = publicKeyBase58
+		}
+	case "publicKeyJwk":
+		if publicKeyJwk, ok := value.(map[string]interface{}); ok {
+			v.PublicKeyJwk = publicKeyJwk
+		}
+	default:
+		if v.additionalProperties == nil {
+			v.additionalProperties = make(map[string]interface{})
+		}
+		v.additionalProperties[propertyName] = value
+	}
+
 }
 
 // JWK returns the key described by the VerificationMethod as JSON Web Key.
@@ -457,6 +521,15 @@ func parseKeyID(b []byte) (*DIDURL, error) {
 		return &DIDURL{Fragment: keyIDString[1:]}, nil
 	}
 	return ParseDIDURL(keyIDString)
+}
+
+func (v VerificationMethod) MarshalJSON() ([]byte, error) {
+	type Alias VerificationMethod
+	data, err := json.Marshal(Alias(v))
+	if err != nil {
+		return nil, err
+	}
+
 }
 
 func (v *VerificationMethod) UnmarshalJSON(bytes []byte) error {
