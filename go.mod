@@ -3,7 +3,7 @@ module github.com/nuts-foundation/go-did
 go 1.19
 
 require (
-	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.3.0
+	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.4.0
 	github.com/lestrrat-go/jwx/v2 v2.1.3
 	github.com/multiformats/go-multibase v0.2.0
 	github.com/shengdoushi/base58 v1.0.0
