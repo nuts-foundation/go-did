@@ -139,6 +139,36 @@ func TestVerifiableCredential_UnmarshalCredentialSubject(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Equal(t, "test", target[0].Name)
 	})
+	t.Run("into []map[string]interface{}", func(t *testing.T) {
+		t.Run("empty", func(t *testing.T) {
+			input := VerifiableCredential{}
+			json.Unmarshal([]byte(`{
+		  "id":"did:example:123#vc-1",
+		  "type":["VerifiableCredential", "custom"]
+		}`), &input)
+			var target []map[string]interface{}
+
+			err := input.UnmarshalCredentialSubject(&target)
+
+			assert.NoError(t, err)
+			assert.Empty(t, target)
+		})
+		t.Run("non-empty", func(t *testing.T) {
+			input := VerifiableCredential{}
+			json.Unmarshal([]byte(`{
+		  "id":"did:example:123#vc-1",
+		  "type":["VerifiableCredential", "custom"],
+		  "credentialSubject": {"name": "test"}
+		}`), &input)
+			var target []map[string]interface{}
+
+			err := input.UnmarshalCredentialSubject(&target)
+
+			assert.NoError(t, err)
+			assert.Equal(t, "test", target[0]["name"])
+		})
+
+	})
 }
 
 func TestVerifiableCredential_UnmarshalCredentialStatus(t *testing.T) {

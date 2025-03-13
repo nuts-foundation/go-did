@@ -303,6 +303,21 @@ func (vc VerifiableCredential) UnmarshalCredentialStatus(target any) error {
 }
 
 func unmarshalAnySliceToTarget(s []any, target any) error {
+	switch castTarget := target.(type) {
+	case *[]map[string]interface{}:
+		// Optimize unmarshal into map[string]interface{} slice when the slice itself is of the same type,
+		// since this is a very common use case.
+		if len(s) == 0 {
+			*castTarget = []map[string]interface{}{}
+		} else if _, isMap := s[0].(map[string]interface{}); isMap {
+			*castTarget = make([]map[string]interface{}, len(s))
+			for i, v := range s {
+				(*castTarget)[i] = v.(map[string]interface{})
+			}
+			return nil
+		}
+	}
+	// If not optimizable, use the generic unmarshal
 	if asJSON, err := json.Marshal(s); err != nil {
 		return err
 	} else {
