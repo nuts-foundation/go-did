@@ -93,11 +93,8 @@ func parseJWTCredential(raw string) (*VerifiableCredential, error) {
 	}
 	// parse sub
 	if token.Subject() != "" {
-		for _, credentialSubjectInterf := range result.CredentialSubject {
-			credentialSubject, isMap := credentialSubjectInterf.(map[string]interface{})
-			if isMap {
-				credentialSubject["id"] = token.Subject()
-			}
+		for _, credentialSubject := range result.CredentialSubject {
+			credentialSubject["id"] = token.Subject()
 		}
 	}
 	// parse jti
@@ -146,7 +143,7 @@ type VerifiableCredential struct {
 	// CredentialStatus holds information on how the credential can be revoked. It must be extracted using the UnmarshalCredentialStatus method and a custom type.
 	CredentialStatus []any `json:"credentialStatus,omitempty"`
 	// CredentialSubject holds the actual data for the credential. It must be extracted using the UnmarshalCredentialSubject method and a custom type.
-	CredentialSubject []interface{} `json:"credentialSubject"`
+	CredentialSubject []map[string]any `json:"credentialSubject"`
 	// Proof contains the cryptographic proof(s). It must be extracted using the Proofs method or UnmarshalProofValue method for non-generic proof fields.
 	Proof []interface{} `json:"proof,omitempty"`
 
@@ -289,20 +286,20 @@ func (vc *VerifiableCredential) UnmarshalJSON(b []byte) error {
 // UnmarshalProofValue unmarshalls the proof to the given proof type. Always pass a slice as target since there could be multiple proofs.
 // Each proof will result in a value, where null values may exist when the proof doesn't have the json member.
 func (vc VerifiableCredential) UnmarshalProofValue(target interface{}) error {
-	return unmarshalAnySliceToTarget(vc.Proof, target)
+	return unmarshalIntoToTarget(vc.Proof, target)
 }
 
 // UnmarshalCredentialSubject unmarshalls the credentialSubject to the given credentialSubject type. Always pass a slice as target.
 func (vc VerifiableCredential) UnmarshalCredentialSubject(target interface{}) error {
-	return unmarshalAnySliceToTarget(vc.CredentialSubject, target)
+	return unmarshalIntoToTarget(vc.CredentialSubject, target)
 }
 
 // UnmarshalCredentialStatus unmarshalls the credentialStatus field to the provided target. Always pass a slice as target.
 func (vc VerifiableCredential) UnmarshalCredentialStatus(target any) error {
-	return unmarshalAnySliceToTarget(vc.CredentialStatus, target)
+	return unmarshalIntoToTarget(vc.CredentialStatus, target)
 }
 
-func unmarshalAnySliceToTarget(s []any, target any) error {
+func unmarshalIntoToTarget(s any, target any) error {
 	if asJSON, err := json.Marshal(s); err != nil {
 		return err
 	} else {
