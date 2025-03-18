@@ -318,25 +318,37 @@ func (vc VerifiableCredential) SubjectDID() (*did.DID, error) {
 	if len(vc.CredentialSubject) < 1 {
 		return nil, errors.New("unable to get subject DID from VC: there must be at least 1 credentialSubject")
 	}
-	type credentialSubject struct {
-		ID did.DID `json:"id"`
+	var subjectIDs []string
+	for _, credentialSubject := range vc.CredentialSubject {
+		id, ok := credentialSubject["id"].(string)
+		if !ok {
+			return nil, fmt.Errorf("unable to get subject DID from VC: %w", errCredentialSubjectWithoutID)
+		}
+		subjectIDs = append(subjectIDs, id)
 	}
-	var subjects []credentialSubject
-	err := vc.UnmarshalCredentialSubject(&subjects)
+	// Assert all credentials share the same subject
+	subjectID := subjectIDs[0]
+	for _, subject := range subjectIDs {
+		if subjectID != subject {
+			return nil, errors.New("unable to get subject DID from VC: not all credential subjects have the same ID")
+		}
+	}
+	result, err := did.ParseDID(subjectID)
 	if err != nil {
 		return nil, fmt.Errorf("unable to get subject DID from VC: %w", err)
 	}
-	// Assert all credentials share the same subject
-	subjectID := subjects[0].ID
-	for _, subject := range subjects {
-		if !subjectID.Equals(subject.ID) {
-			return nil, errors.New("unable to get subject DID from VC: credential subjects have the same ID")
-		}
-	}
-	if subjectID.Empty() {
+	if result.Empty() {
 		return nil, fmt.Errorf("unable to get subject DID from VC: %w", errCredentialSubjectWithoutID)
 	}
-	return &subjectID, nil
+	return result, err
+}
+
+func CredentialSubjectAsDID(credentialSubject map[string]any) (*did.DID, error) {
+	str, ok := credentialSubject["id"].(string)
+	if !ok {
+		return nil, errors.New("credentialSubject.id must be a string")
+	}
+	return did.ParseDID(str)
 }
 
 // IsType returns true when a credential contains the requested type

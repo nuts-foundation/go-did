@@ -362,7 +362,7 @@ func TestVerifiableCredential_SubjectDID(t *testing.T) {
 
 		_, err := input.SubjectDID()
 
-		assert.EqualError(t, err, "unable to get subject DID from VC: credential subjects have the same ID")
+		assert.EqualError(t, err, "unable to get subject DID from VC: not all credential subjects have the same ID")
 	})
 	t.Run("2 subjects, second doesn't have an IDs (not supported)", func(t *testing.T) {
 		input := VerifiableCredential{}
@@ -373,7 +373,7 @@ func TestVerifiableCredential_SubjectDID(t *testing.T) {
 
 		_, err := input.SubjectDID()
 
-		assert.EqualError(t, err, "unable to get subject DID from VC: credential subjects have the same ID")
+		assert.EqualError(t, err, "unable to get subject DID from VC: credential subjects have no ID")
 	})
 	t.Run("invalid DID", func(t *testing.T) {
 		input := VerifiableCredential{}
