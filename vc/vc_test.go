@@ -323,6 +323,24 @@ func TestVerifiableCredential_SubjectDID(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Equal(t, "did:example:123", id.String())
 	})
+	t.Run("URI", func(t *testing.T) {
+		input := VerifiableCredential{}
+		input.CredentialSubject = []map[string]any{{"id": ssi.MustParseURI("did:example:123")}}
+
+		id, err := input.SubjectDID()
+
+		assert.NoError(t, err)
+		assert.Equal(t, "did:example:123", id.String())
+	})
+	t.Run("DID", func(t *testing.T) {
+		input := VerifiableCredential{}
+		input.CredentialSubject = []map[string]any{{"id": did.MustParseDID("did:example:123")}}
+
+		id, err := input.SubjectDID()
+
+		assert.NoError(t, err)
+		assert.Equal(t, "did:example:123", id.String())
+	})
 	t.Run("no subjects", func(t *testing.T) {
 		input := VerifiableCredential{}
 		input.CredentialSubject = make([]map[string]any, 0)

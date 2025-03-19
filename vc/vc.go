@@ -320,11 +320,14 @@ func (vc VerifiableCredential) SubjectDID() (*did.DID, error) {
 	}
 	var subjectIDs []string
 	for _, credentialSubject := range vc.CredentialSubject {
-		id, ok := credentialSubject["id"].(string)
-		if !ok {
+		if id, ok := credentialSubject["id"].(string); ok {
+			subjectIDs = append(subjectIDs, id)
+		} else if id, ok := credentialSubject["id"].(fmt.Stringer); ok {
+			subjectIDs = append(subjectIDs, id.String())
+		} else {
 			return nil, fmt.Errorf("unable to get subject DID from VC: %w", errCredentialSubjectWithoutID)
 		}
-		subjectIDs = append(subjectIDs, id)
+
 	}
 	// Assert all credentials share the same subject
 	subjectID := subjectIDs[0]
