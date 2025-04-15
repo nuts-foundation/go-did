@@ -50,7 +50,7 @@ func TestVerifiableCredential_JSONMarshalling(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, "did:example:123#vc-1", input.ID.String())
 		assert.Equal(t, []ssi.URI{VerifiableCredentialTypeV1URI(), ssi.MustParseURI("custom")}, input.Type)
-		assert.Equal(t, []interface{}{map[string]interface{}{"name": "test"}}, input.CredentialSubject)
+		assert.Equal(t, []map[string]any{{"name": "test"}}, input.CredentialSubject)
 		assert.Equal(t, []interface{}{map[string]interface{}{"id": "example.com", "type": "Custom"}}, input.CredentialStatus)
 		assert.Equal(t, JSONLDCredentialProofFormat, input.Format())
 		assert.Equal(t, raw, input.Raw())
@@ -75,7 +75,7 @@ func TestVerifiableCredential_JSONMarshalling(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, []ssi.URI{ssi.MustParseURI("VerifiableCredential"), ssi.MustParseURI("UniversityDegreeCredential")}, input.Type)
 		assert.Len(t, input.CredentialSubject, 1)
-		assert.NotNil(t, input.CredentialSubject[0].(map[string]interface{})["degree"])
+		assert.NotNil(t, input.CredentialSubject[0]["degree"])
 		assert.Equal(t, JWTCredentialProofFormat, input.Format())
 		assert.Equal(t, raw, input.Raw())
 		assert.NotNil(t, input.JWT())
@@ -97,7 +97,7 @@ func TestParseVerifiableCredential(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, "did:example:123#vc-1", input.ID.String())
 		assert.Equal(t, []ssi.URI{VerifiableCredentialTypeV1URI(), ssi.MustParseURI("custom")}, input.Type)
-		assert.Equal(t, []interface{}{map[string]interface{}{"name": "test"}}, input.CredentialSubject)
+		assert.Equal(t, []map[string]any{{"name": "test"}}, input.CredentialSubject)
 	})
 	t.Run("JWT", func(t *testing.T) {
 		input := VerifiableCredential{}
@@ -105,7 +105,7 @@ func TestParseVerifiableCredential(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, []ssi.URI{ssi.MustParseURI("VerifiableCredential"), ssi.MustParseURI("UniversityDegreeCredential")}, input.Type)
 		assert.Len(t, input.CredentialSubject, 1)
-		assert.NotNil(t, input.CredentialSubject[0].(map[string]interface{})["degree"])
+		assert.NotNil(t, input.CredentialSubject[0]["degree"])
 	})
 	t.Run("JWT without `exp` and `nbf` claim", func(t *testing.T) {
 		token := jwt.New()
@@ -316,7 +316,25 @@ func TestVerifiableCredential_ContainsContext(t *testing.T) {
 func TestVerifiableCredential_SubjectDID(t *testing.T) {
 	t.Run("1 subject", func(t *testing.T) {
 		input := VerifiableCredential{}
-		input.CredentialSubject = []interface{}{map[string]interface{}{"id": "did:example:123"}}
+		input.CredentialSubject = []map[string]any{{"id": "did:example:123"}}
+
+		id, err := input.SubjectDID()
+
+		assert.NoError(t, err)
+		assert.Equal(t, "did:example:123", id.String())
+	})
+	t.Run("URI", func(t *testing.T) {
+		input := VerifiableCredential{}
+		input.CredentialSubject = []map[string]any{{"id": ssi.MustParseURI("did:example:123")}}
+
+		id, err := input.SubjectDID()
+
+		assert.NoError(t, err)
+		assert.Equal(t, "did:example:123", id.String())
+	})
+	t.Run("DID", func(t *testing.T) {
+		input := VerifiableCredential{}
+		input.CredentialSubject = []map[string]any{{"id": did.MustParseDID("did:example:123")}}
 
 		id, err := input.SubjectDID()
 
@@ -325,7 +343,7 @@ func TestVerifiableCredential_SubjectDID(t *testing.T) {
 	})
 	t.Run("no subjects", func(t *testing.T) {
 		input := VerifiableCredential{}
-		input.CredentialSubject = []interface{}{}
+		input.CredentialSubject = make([]map[string]any, 0)
 
 		_, err := input.SubjectDID()
 
@@ -333,8 +351,8 @@ func TestVerifiableCredential_SubjectDID(t *testing.T) {
 	})
 	t.Run("1 subject without ID (not supported)", func(t *testing.T) {
 		input := VerifiableCredential{}
-		input.CredentialSubject = []interface{}{
-			map[string]interface{}{},
+		input.CredentialSubject = []map[string]any{
+			{},
 		}
 
 		_, err := input.SubjectDID()
@@ -343,9 +361,9 @@ func TestVerifiableCredential_SubjectDID(t *testing.T) {
 	})
 	t.Run("2 subjects with the same IDs", func(t *testing.T) {
 		input := VerifiableCredential{}
-		input.CredentialSubject = []interface{}{
-			map[string]interface{}{"id": "did:example:123"},
-			map[string]interface{}{"id": "did:example:123"},
+		input.CredentialSubject = []map[string]any{
+			{"id": "did:example:123"},
+			{"id": "did:example:123"},
 		}
 
 		id, err := input.SubjectDID()
@@ -355,30 +373,30 @@ func TestVerifiableCredential_SubjectDID(t *testing.T) {
 	})
 	t.Run("2 subjects with different IDs (not supported)", func(t *testing.T) {
 		input := VerifiableCredential{}
-		input.CredentialSubject = []interface{}{
-			map[string]interface{}{"id": "did:example:123"},
-			map[string]interface{}{"id": "did:example:456"},
+		input.CredentialSubject = []map[string]any{
+			{"id": "did:example:123"},
+			{"id": "did:example:456"},
 		}
 
 		_, err := input.SubjectDID()
 
-		assert.EqualError(t, err, "unable to get subject DID from VC: credential subjects have the same ID")
+		assert.EqualError(t, err, "unable to get subject DID from VC: not all credential subjects have the same ID")
 	})
 	t.Run("2 subjects, second doesn't have an IDs (not supported)", func(t *testing.T) {
 		input := VerifiableCredential{}
-		input.CredentialSubject = []interface{}{
-			map[string]interface{}{"id": "did:example:123"},
-			map[string]interface{}{},
+		input.CredentialSubject = []map[string]any{
+			{"id": "did:example:123"},
+			{},
 		}
 
 		_, err := input.SubjectDID()
 
-		assert.EqualError(t, err, "unable to get subject DID from VC: credential subjects have the same ID")
+		assert.EqualError(t, err, "unable to get subject DID from VC: credential subjects have no ID")
 	})
 	t.Run("invalid DID", func(t *testing.T) {
 		input := VerifiableCredential{}
-		input.CredentialSubject = []interface{}{
-			map[string]interface{}{"id": "not a DID"},
+		input.CredentialSubject = []map[string]any{
+			{"id": "not a DID"},
 		}
 
 		_, err := input.SubjectDID()
@@ -404,8 +422,8 @@ func TestCreateJWTVerifiableCredential(t *testing.T) {
 		},
 		IssuanceDate:   issuanceDate,
 		ExpirationDate: &expirationDate,
-		CredentialSubject: []interface{}{
-			map[string]interface{}{
+		CredentialSubject: []map[string]any{
+			{
 				"id": subjectDID.String(),
 			},
 		},

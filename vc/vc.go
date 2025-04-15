@@ -93,11 +93,8 @@ func parseJWTCredential(raw string) (*VerifiableCredential, error) {
 	}
 	// parse sub
 	if token.Subject() != "" {
-		for _, credentialSubjectInterf := range result.CredentialSubject {
-			credentialSubject, isMap := credentialSubjectInterf.(map[string]interface{})
-			if isMap {
-				credentialSubject["id"] = token.Subject()
-			}
+		for _, credentialSubject := range result.CredentialSubject {
+			credentialSubject["id"] = token.Subject()
 		}
 	}
 	// parse jti
@@ -146,7 +143,7 @@ type VerifiableCredential struct {
 	// CredentialStatus holds information on how the credential can be revoked. It must be extracted using the UnmarshalCredentialStatus method and a custom type.
 	CredentialStatus []any `json:"credentialStatus,omitempty"`
 	// CredentialSubject holds the actual data for the credential. It must be extracted using the UnmarshalCredentialSubject method and a custom type.
-	CredentialSubject []interface{} `json:"credentialSubject"`
+	CredentialSubject []map[string]any `json:"credentialSubject"`
 	// Proof contains the cryptographic proof(s). It must be extracted using the Proofs method or UnmarshalProofValue method for non-generic proof fields.
 	Proof []interface{} `json:"proof,omitempty"`
 
@@ -289,20 +286,20 @@ func (vc *VerifiableCredential) UnmarshalJSON(b []byte) error {
 // UnmarshalProofValue unmarshalls the proof to the given proof type. Always pass a slice as target since there could be multiple proofs.
 // Each proof will result in a value, where null values may exist when the proof doesn't have the json member.
 func (vc VerifiableCredential) UnmarshalProofValue(target interface{}) error {
-	return unmarshalAnySliceToTarget(vc.Proof, target)
+	return unmarshal(vc.Proof, target)
 }
 
 // UnmarshalCredentialSubject unmarshalls the credentialSubject to the given credentialSubject type. Always pass a slice as target.
 func (vc VerifiableCredential) UnmarshalCredentialSubject(target interface{}) error {
-	return unmarshalAnySliceToTarget(vc.CredentialSubject, target)
+	return unmarshal(vc.CredentialSubject, target)
 }
 
 // UnmarshalCredentialStatus unmarshalls the credentialStatus field to the provided target. Always pass a slice as target.
 func (vc VerifiableCredential) UnmarshalCredentialStatus(target any) error {
-	return unmarshalAnySliceToTarget(vc.CredentialStatus, target)
+	return unmarshal(vc.CredentialStatus, target)
 }
 
-func unmarshalAnySliceToTarget(s []any, target any) error {
+func unmarshal(s any, target any) error {
 	if asJSON, err := json.Marshal(s); err != nil {
 		return err
 	} else {
@@ -321,25 +318,40 @@ func (vc VerifiableCredential) SubjectDID() (*did.DID, error) {
 	if len(vc.CredentialSubject) < 1 {
 		return nil, errors.New("unable to get subject DID from VC: there must be at least 1 credentialSubject")
 	}
-	type credentialSubject struct {
-		ID did.DID `json:"id"`
+	var subjectIDs []string
+	for _, credentialSubject := range vc.CredentialSubject {
+		if id, ok := credentialSubject["id"].(string); ok {
+			subjectIDs = append(subjectIDs, id)
+		} else if id, ok := credentialSubject["id"].(fmt.Stringer); ok {
+			subjectIDs = append(subjectIDs, id.String())
+		} else {
+			return nil, fmt.Errorf("unable to get subject DID from VC: %w", errCredentialSubjectWithoutID)
+		}
+
 	}
-	var subjects []credentialSubject
-	err := vc.UnmarshalCredentialSubject(&subjects)
+	// Assert all credentials share the same subject
+	subjectID := subjectIDs[0]
+	for _, subject := range subjectIDs {
+		if subjectID != subject {
+			return nil, errors.New("unable to get subject DID from VC: not all credential subjects have the same ID")
+		}
+	}
+	result, err := did.ParseDID(subjectID)
 	if err != nil {
 		return nil, fmt.Errorf("unable to get subject DID from VC: %w", err)
 	}
-	// Assert all credentials share the same subject
-	subjectID := subjects[0].ID
-	for _, subject := range subjects {
-		if !subjectID.Equals(subject.ID) {
-			return nil, errors.New("unable to get subject DID from VC: credential subjects have the same ID")
-		}
-	}
-	if subjectID.Empty() {
+	if result.Empty() {
 		return nil, fmt.Errorf("unable to get subject DID from VC: %w", errCredentialSubjectWithoutID)
 	}
-	return &subjectID, nil
+	return result, err
+}
+
+func CredentialSubjectAsDID(credentialSubject map[string]any) (*did.DID, error) {
+	str, ok := credentialSubject["id"].(string)
+	if !ok {
+		return nil, errors.New("credentialSubject.id must be a string")
+	}
+	return did.ParseDID(str)
 }
 
 // IsType returns true when a credential contains the requested type
