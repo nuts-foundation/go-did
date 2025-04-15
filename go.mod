@@ -1,6 +1,6 @@
 module github.com/nuts-foundation/go-did
 
-go 1.19
+go 1.24
 
 require (
 	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.4.0
