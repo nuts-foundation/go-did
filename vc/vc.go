@@ -286,20 +286,20 @@ func (vc *VerifiableCredential) UnmarshalJSON(b []byte) error {
 // UnmarshalProofValue unmarshalls the proof to the given proof type. Always pass a slice as target since there could be multiple proofs.
 // Each proof will result in a value, where null values may exist when the proof doesn't have the json member.
 func (vc VerifiableCredential) UnmarshalProofValue(target interface{}) error {
-	return unmarshalIntoToTarget(vc.Proof, target)
+	return unmarshal(vc.Proof, target)
 }
 
 // UnmarshalCredentialSubject unmarshalls the credentialSubject to the given credentialSubject type. Always pass a slice as target.
 func (vc VerifiableCredential) UnmarshalCredentialSubject(target interface{}) error {
-	return unmarshalIntoToTarget(vc.CredentialSubject, target)
+	return unmarshal(vc.CredentialSubject, target)
 }
 
 // UnmarshalCredentialStatus unmarshalls the credentialStatus field to the provided target. Always pass a slice as target.
 func (vc VerifiableCredential) UnmarshalCredentialStatus(target any) error {
-	return unmarshalIntoToTarget(vc.CredentialStatus, target)
+	return unmarshal(vc.CredentialStatus, target)
 }
 
-func unmarshalIntoToTarget(s any, target any) error {
+func unmarshal(s any, target any) error {
 	if asJSON, err := json.Marshal(s); err != nil {
 		return err
 	} else {
