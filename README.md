@@ -72,6 +72,13 @@ Outputs:
 The library supports parsing of Verifiable Credentials and Verifiable Presentations in JSON-LD, and JWT proof format.
 Use `ParseVerifiableCredential(raw string)` and `ParseVerifiablePresentation(raw string)`.
 
+### Creating Verifiable Credentials and Verifiable Presentations
+The library supports creating Verifiable Credentials and Verifiable Presentations in JWT proof format.
+
+Use `CreateJWTVerifiableCredential()` and `CreateJWTVerifiablePresentation()`.
+
+See `vc/vp_test.go` and `vc/vc_test.go` for examples.
+
 ## Supported key types
 
 - `JsonWebKey2020`

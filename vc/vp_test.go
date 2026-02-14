@@ -1,13 +1,20 @@
 package vc
 
 import (
+	"context"
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
 	"encoding/json"
-	ssi "github.com/nuts-foundation/go-did"
-	"github.com/stretchr/testify/require"
 	"strings"
 	"testing"
+	"time"
 
+	"github.com/lestrrat-go/jwx/v2/jwa"
+	"github.com/lestrrat-go/jwx/v2/jwt"
+	ssi "github.com/nuts-foundation/go-did"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // jwtPresentation is taken from https://www.w3.org/TR/vc-data-model/#example-verifiable-presentation-using-jwt-compact-serialization-non-normative
@@ -231,5 +238,115 @@ func TestParseVerifiablePresentation(t *testing.T) {
 		err := json.Unmarshal([]byte(input), &expected)
 		require.NoError(t, err)
 		assert.Equal(t, JWTPresentationProofFormat, expected.VP.Format())
+	})
+}
+
+func TestCreateJWTVerifiablePresentation(t *testing.T) {
+	keyPair, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	signJWT := func(_ context.Context, claims map[string]interface{}, headers map[string]interface{}) (string, error) {
+		token := jwt.New()
+		for k, v := range claims {
+			err := token.Set(k, v)
+			if err != nil {
+				return "", err
+			}
+		}
+		for k, v := range headers {
+			err := token.Set(k, v)
+			if err != nil {
+				return "", err
+			}
+		}
+		result, err := jwt.Sign(token, jwt.WithKey(jwa.ES256, keyPair))
+		if err != nil {
+			return "", err
+		}
+		return string(result), nil
+	}
+	holderDID := ssi.MustParseURI("did:example:holder")
+	presenterDID := ssi.MustParseURI("did:example:presenter")
+	credential := VerifiableCredential{
+		Context: []ssi.URI{
+			VCContextV1URI(),
+		},
+		Type: []ssi.URI{
+			VerifiableCredentialTypeV1URI(),
+		},
+	}
+	nonce := "343s$FSFDa-"
+	audience := "did:example:verifier"
+	nbf := time.Unix(1541493724, 0)
+	exp := time.Unix(1573029723, 0)
+
+	ctx := context.Background()
+	t.Run("all properties", func(t *testing.T) {
+		options := PresentationOptions{
+			AdditionalContexts: []ssi.URI{
+				ssi.MustParseURI("https://www.w3.org/2018/credentials/examples/v1"),
+			},
+			AdditionalTypes: []ssi.URI{
+				ssi.MustParseURI("CredentialManagerPresentation"),
+			},
+			Holder:    &holderDID,
+			Nonce:     &nonce,
+			Audience:  &audience,
+			IssuedAt:  &nbf,
+			ExpiresAt: exp,
+		}
+		vp, err := CreateJWTVerifiablePresentation(ctx, presenterDID, []VerifiableCredential{credential}, options, signJWT)
+		require.NoError(t, err)
+		require.NotNil(t, vp)
+
+		// Verify it's a JWT presentation
+		assert.Equal(t, JWTPresentationProofFormat, vp.Format())
+		assert.NotNil(t, vp.JWT())
+
+		// Verify JWT claims
+		token := vp.JWT()
+		assert.Equal(t, presenterDID.String(), token.Subject())
+		assert.NotEmpty(t, token.JwtID())
+		assert.Equal(t, nonce, token.PrivateClaims()["nonce"])
+		assert.Equal(t, []string{audience}, token.Audience())
+		assert.Equal(t, nbf.Unix(), token.NotBefore().Unix())
+		assert.Equal(t, exp.Unix(), token.Expiration().Unix())
+
+		// Verify VP structure
+		assert.Equal(t, &holderDID, vp.Holder)
+		assert.Len(t, vp.VerifiableCredential, 1)
+		assert.Len(t, vp.Context, 2)
+		assert.Equal(t, VCContextV1URI(), vp.Context[0])
+		assert.Equal(t, options.AdditionalContexts[0], vp.Context[1])
+		assert.Len(t, vp.Type, 2)
+		assert.Equal(t, VerifiablePresentationTypeV1URI(), vp.Type[0])
+		assert.Equal(t, options.AdditionalTypes[0], vp.Type[1])
+	})
+	t.Run("only mandatory properties", func(t *testing.T) {
+		options := PresentationOptions{
+			ExpiresAt: exp,
+		}
+		vp, err := CreateJWTVerifiablePresentation(ctx, presenterDID, []VerifiableCredential{}, options, signJWT)
+		require.NoError(t, err)
+		require.NotNil(t, vp)
+
+		// Verify it's a JWT presentation
+		assert.Equal(t, JWTPresentationProofFormat, vp.Format())
+		assert.NotNil(t, vp.JWT())
+
+		// Verify JWT claims
+		token := vp.JWT()
+		assert.Equal(t, presenterDID.String(), token.Subject())
+		assert.NotEmpty(t, token.JwtID())
+		assert.Nil(t, token.PrivateClaims()["nonce"])
+		assert.Empty(t, token.Audience())
+		assert.NotZero(t, token.NotBefore()) // auto-set to time.Now() when IssuedAt is nil
+		assert.Equal(t, exp.Unix(), token.Expiration().Unix())
+
+		// Verify VP structure
+		assert.Nil(t, vp.Holder) // holder is optional
+		assert.Empty(t, vp.VerifiableCredential)
+		assert.Len(t, vp.Context, 1) // only base context
+		assert.Equal(t, VCContextV1URI(), vp.Context[0])
+		assert.Len(t, vp.Type, 1) // only base type
+		assert.Equal(t, VerifiablePresentationTypeV1URI(), vp.Type[0])
 	})
 }

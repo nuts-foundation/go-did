@@ -1,11 +1,16 @@
 package vc
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
-	"github.com/lestrrat-go/jwx/v2/jwt"
 	"strings"
+	"time"
 
+	"github.com/google/uuid"
+	"github.com/lestrrat-go/jwx/v2/jws"
+	"github.com/lestrrat-go/jwx/v2/jwt"
 	ssi "github.com/nuts-foundation/go-did"
 	"github.com/nuts-foundation/go-did/internal/marshal"
 )
@@ -219,4 +224,80 @@ func (vp VerifiablePresentation) ContainsContext(context ssi.URI) bool {
 	}
 
 	return false
+}
+
+// PresentationOptions contains the options for creating a Verifiable Presentation.
+type PresentationOptions struct {
+	// AdditionalContexts contains the contexts to be added in addition to https://www.w3.org/2018/credentials/v1.
+	AdditionalContexts []ssi.URI
+	// AdditionalTypes contains the VerifiablePresentation types in addition to VerifiablePresentation.
+	AdditionalTypes []ssi.URI
+	// AdditionalProofProperties contains additional properties to be added to the proof.
+	AdditionalProofProperties map[string]any
+	// Holder specifies the holder property (maps to 'iss' claim in JWT).
+	Holder *ssi.URI
+	// Nonce is used to prevent replay attacks (maps to 'nonce' claim in JWT).
+	Nonce *string
+	// Audience specifies the intended audience (maps to 'aud' claim in JWT).
+	Audience *string
+	// IssuedAt specifies when the presentation was issued (maps to 'nbf' claim in JWT).
+	IssuedAt *time.Time
+	// ExpiresAt specifies when the presentation expires (maps to 'exp' claim in JWT).
+	ExpiresAt time.Time
+}
+
+// CreateJWTVerifiablePresentation creates a VC Data Model v1.1 JWT Verifiable Presentation from the given credentials and options.
+// For signing the actual JWT it calls the given signer, which must return the created JWT in string format.
+// Note: the signer is responsible for adding the right key claims (e.g. `kid`).
+// The implementation follows the W3C VC Data Model v1.1 spec: https://www.w3.org/TR/vc-data-model-1.1/#json-web-token
+func CreateJWTVerifiablePresentation(ctx context.Context, presenter ssi.URI, credentials []VerifiableCredential, options PresentationOptions, signer JWTSigner) (*VerifiablePresentation, error) {
+	if options.ExpiresAt.IsZero() {
+		return nil, errors.New("expiresAt must be set and non-zero")
+	}
+
+	headers := map[string]interface{}{
+		jws.TypeKey: "JWT",
+	}
+	id := presenter
+	id.Fragment = strings.ToLower(uuid.NewString())
+
+	// Build the VP map that goes into the 'vp' claim
+	verifiablePresentation := map[string]interface{}{
+		"@context": append([]ssi.URI{VCContextV1URI()}, options.AdditionalContexts...),
+		"type":     append([]ssi.URI{VerifiablePresentationTypeV1URI()}, options.AdditionalTypes...),
+	}
+	if options.Holder != nil {
+		verifiablePresentation["holder"] = options.Holder.String()
+	}
+	if len(credentials) > 0 {
+		verifiablePresentation["verifiableCredential"] = credentials
+	}
+
+	claims := map[string]interface{}{
+		jwt.SubjectKey:    presenter.String(),
+		jwt.JwtIDKey:      id.String(),
+		jwt.ExpirationKey: int(options.ExpiresAt.Unix()),
+		"vp":              verifiablePresentation,
+	}
+	for key, val := range options.AdditionalProofProperties {
+		claims[key] = val
+	}
+
+	if options.Nonce != nil {
+		claims["nonce"] = *options.Nonce
+	}
+	if options.Audience != nil {
+		claims[jwt.AudienceKey] = *options.Audience
+	}
+	if options.IssuedAt == nil {
+		claims[jwt.NotBeforeKey] = time.Now().Unix()
+	} else {
+		claims[jwt.NotBeforeKey] = int(options.IssuedAt.Unix())
+	}
+
+	token, err := signer(ctx, claims, headers)
+	if err != nil {
+		return nil, fmt.Errorf("unable to sign JWT presentation: %w", err)
+	}
+	return parseJTWPresentation(token)
 }
