@@ -291,7 +291,7 @@ func TestCreateJWTVerifiablePresentation(t *testing.T) {
 			Nonce:     &nonce,
 			Audience:  &audience,
 			IssuedAt:  &nbf,
-			ExpiresAt: exp,
+			ExpiresAt: &exp,
 		}
 		vp, err := CreateJWTVerifiablePresentation(ctx, presenterDID, []VerifiableCredential{credential}, options, signJWT)
 		require.NoError(t, err)
@@ -321,9 +321,7 @@ func TestCreateJWTVerifiablePresentation(t *testing.T) {
 		assert.Equal(t, options.AdditionalTypes[0], vp.Type[1])
 	})
 	t.Run("only mandatory properties", func(t *testing.T) {
-		options := PresentationOptions{
-			ExpiresAt: exp,
-		}
+		options := PresentationOptions{}
 		vp, err := CreateJWTVerifiablePresentation(ctx, presenterDID, []VerifiableCredential{}, options, signJWT)
 		require.NoError(t, err)
 		require.NotNil(t, vp)
@@ -339,7 +337,7 @@ func TestCreateJWTVerifiablePresentation(t *testing.T) {
 		assert.Nil(t, token.PrivateClaims()["nonce"])
 		assert.Empty(t, token.Audience())
 		assert.NotZero(t, token.NotBefore()) // auto-set to time.Now() when IssuedAt is nil
-		assert.Equal(t, exp.Unix(), token.Expiration().Unix())
+		assert.Zero(t, token.Expiration())   // exp not set when ExpiresAt is nil
 
 		// Verify VP structure
 		assert.Nil(t, vp.Holder) // holder is optional

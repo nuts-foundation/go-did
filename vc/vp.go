@@ -3,7 +3,6 @@ package vc
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -243,7 +242,8 @@ type PresentationOptions struct {
 	// IssuedAt specifies when the presentation was issued (maps to 'nbf' claim in JWT).
 	IssuedAt *time.Time
 	// ExpiresAt specifies when the presentation expires (maps to 'exp' claim in JWT).
-	ExpiresAt time.Time
+	// If nil, no expiration claim is added to the JWT.
+	ExpiresAt *time.Time
 }
 
 // CreateJWTVerifiablePresentation creates a VC Data Model v1.1 JWT Verifiable Presentation from the given credentials and options.
@@ -251,10 +251,6 @@ type PresentationOptions struct {
 // Note: the signer is responsible for adding the right key claims (e.g. `kid`).
 // The implementation follows the W3C VC Data Model v1.1 spec: https://www.w3.org/TR/vc-data-model-1.1/#json-web-token
 func CreateJWTVerifiablePresentation(ctx context.Context, presenter ssi.URI, credentials []VerifiableCredential, options PresentationOptions, signer JWTSigner) (*VerifiablePresentation, error) {
-	if options.ExpiresAt.IsZero() {
-		return nil, errors.New("expiresAt must be set and non-zero")
-	}
-
 	headers := map[string]interface{}{
 		jws.TypeKey: "JWT",
 	}
@@ -274,10 +270,12 @@ func CreateJWTVerifiablePresentation(ctx context.Context, presenter ssi.URI, cre
 	}
 
 	claims := map[string]interface{}{
-		jwt.SubjectKey:    presenter.String(),
-		jwt.JwtIDKey:      id.String(),
-		jwt.ExpirationKey: int(options.ExpiresAt.Unix()),
-		"vp":              verifiablePresentation,
+		jwt.SubjectKey: presenter.String(),
+		jwt.JwtIDKey:   id.String(),
+		"vp":           verifiablePresentation,
+	}
+	if options.ExpiresAt != nil {
+		claims[jwt.ExpirationKey] = int(options.ExpiresAt.Unix())
 	}
 	for key, val := range options.AdditionalProofProperties {
 		claims[key] = val
