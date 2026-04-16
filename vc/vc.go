@@ -6,11 +6,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
+	"time"
+
 	"github.com/lestrrat-go/jwx/v2/jws"
 	"github.com/lestrrat-go/jwx/v2/jwt"
 	"github.com/nuts-foundation/go-did/did"
-	"strings"
-	"time"
 
 	ssi "github.com/nuts-foundation/go-did"
 
@@ -378,10 +379,29 @@ func (vc VerifiableCredential) ContainsContext(context ssi.URI) bool {
 
 type JWTSigner func(ctx context.Context, claims map[string]interface{}, headers map[string]interface{}) (string, error)
 
+// CreateCredentialOption is a functional option for CreateJWTVerifiableCredential. It can mutate the JWT claims
+// before signing, or return an error to abort creation.
+type CreateCredentialOption func(claims map[string]interface{}) error
+
+// WithCredentialSubjectAsObject makes CreateJWTVerifiableCredential encode credentialSubject as a single JSON object
+// (rather than an array) in the JWT 'vc' claim. Returns an error if the template does not contain exactly one
+// credentialSubject.
+func WithCredentialSubjectAsObject() CreateCredentialOption {
+	return func(claims map[string]interface{}) error {
+		vcMap := claims["vc"].(map[string]interface{})
+		credentialSubject := vcMap["credentialSubject"].([]map[string]any)
+		if len(credentialSubject) != 1 {
+			return fmt.Errorf("WithCredentialSubjectAsObject requires exactly 1 credentialSubject, got %d", len(credentialSubject))
+		}
+		vcMap["credentialSubject"] = credentialSubject[0]
+		return nil
+	}
+}
+
 // CreateJWTVerifiableCredential creates a JWT Verifiable Credential from the given credential template.
 // For signing the actual JWT it calls the given signer, which must return the created JWT in string format.
 // Note: the signer is responsible for adding the right key claims (e.g. `kid`).
-func CreateJWTVerifiableCredential(ctx context.Context, template VerifiableCredential, signer JWTSigner) (*VerifiableCredential, error) {
+func CreateJWTVerifiableCredential(ctx context.Context, template VerifiableCredential, signer JWTSigner, options ...CreateCredentialOption) (*VerifiableCredential, error) {
 	subjectDID, err := template.SubjectDID()
 	if err != nil {
 		return nil, err
@@ -408,6 +428,11 @@ func CreateJWTVerifiableCredential(ctx context.Context, template VerifiableCrede
 	}
 	if template.CredentialStatus != nil {
 		vcMap["credentialStatus"] = template.CredentialStatus
+	}
+	for _, opt := range options {
+		if err := opt(claims); err != nil {
+			return nil, err
+		}
 	}
 	token, err := signer(ctx, claims, headers)
 	if err != nil {
