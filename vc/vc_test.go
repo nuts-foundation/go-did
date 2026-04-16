@@ -469,6 +469,29 @@ func TestCreateJWTVerifiableCredential(t *testing.T) {
 		assert.Nil(t, claims[jwt.ExpirationKey])
 		assert.Nil(t, claims[jwt.JwtIDKey])
 	})
+	t.Run("WithCredentialSubjectAsObject", func(t *testing.T) {
+		t.Run("single credentialSubject", func(t *testing.T) {
+			var claims map[string]interface{}
+			_, err := CreateJWTVerifiableCredential(ctx, template, func(_ context.Context, c map[string]interface{}, _ map[string]interface{}) (string, error) {
+				claims = c
+				return jwtCredential, nil
+			}, WithCredentialSubjectAsObject())
+			assert.NoError(t, err)
+			vcMap := claims["vc"].(map[string]interface{})
+			assert.Equal(t, template.CredentialSubject[0], vcMap["credentialSubject"])
+		})
+		t.Run("multiple credentialSubjects returns error", func(t *testing.T) {
+			multiTemplate := template
+			multiTemplate.CredentialSubject = []map[string]any{
+				{"id": subjectDID.String()},
+				{"id": subjectDID.String()},
+			}
+			_, err := CreateJWTVerifiableCredential(ctx, multiTemplate, func(_ context.Context, _ map[string]interface{}, _ map[string]interface{}) (string, error) {
+				return jwtCredential, nil
+			}, WithCredentialSubjectAsObject())
+			assert.EqualError(t, err, "WithCredentialSubjectAsObject requires exactly 1 credentialSubject, got 2")
+		})
+	})
 }
 func TestVerifiableCredential_ValidAt(t *testing.T) {
 	low := time.Now()
