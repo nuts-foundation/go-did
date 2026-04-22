@@ -119,6 +119,44 @@ func TestParseVerifiableCredential(t *testing.T) {
 		assert.Nil(t, credential.ExpirationDate)
 		assert.Empty(t, credential.IssuanceDate)
 	})
+	t.Run("JWT copies `sub` into credentialSubject.id when absent", func(t *testing.T) {
+		token := jwt.New()
+		require.NoError(t, token.Set(jwt.SubjectKey, "did:example:123"))
+		require.NoError(t, token.Set("vc", map[string]interface{}{
+			"credentialSubject": map[string]interface{}{"name": "Alice"},
+		}))
+		keyPair, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+		tokenBytes, err := jwt.Sign(token, jwt.WithKey(jwa.ES256, keyPair))
+		require.NoError(t, err)
+		credential, err := ParseVerifiableCredential(string(tokenBytes))
+		require.NoError(t, err)
+		assert.Equal(t, "did:example:123", credential.CredentialSubject[0]["id"])
+	})
+	t.Run("JWT accepts matching `sub` and credentialSubject.id", func(t *testing.T) {
+		token := jwt.New()
+		require.NoError(t, token.Set(jwt.SubjectKey, "did:example:123"))
+		require.NoError(t, token.Set("vc", map[string]interface{}{
+			"credentialSubject": map[string]interface{}{"id": "did:example:123", "name": "Alice"},
+		}))
+		keyPair, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+		tokenBytes, err := jwt.Sign(token, jwt.WithKey(jwa.ES256, keyPair))
+		require.NoError(t, err)
+		credential, err := ParseVerifiableCredential(string(tokenBytes))
+		require.NoError(t, err)
+		assert.Equal(t, "did:example:123", credential.CredentialSubject[0]["id"])
+	})
+	t.Run("JWT rejects mismatched `sub` and credentialSubject.id", func(t *testing.T) {
+		token := jwt.New()
+		require.NoError(t, token.Set(jwt.SubjectKey, "did:example:123"))
+		require.NoError(t, token.Set("vc", map[string]interface{}{
+			"credentialSubject": map[string]interface{}{"id": "did:example:456", "name": "Alice"},
+		}))
+		keyPair, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+		tokenBytes, err := jwt.Sign(token, jwt.WithKey(jwa.ES256, keyPair))
+		require.NoError(t, err)
+		_, err = ParseVerifiableCredential(string(tokenBytes))
+		assert.EqualError(t, err, "JWT 'sub' claim (did:example:123) does not match credentialSubject.id (did:example:456)")
+	})
 }
 
 func TestVerifiableCredential_UnmarshalCredentialSubject(t *testing.T) {
