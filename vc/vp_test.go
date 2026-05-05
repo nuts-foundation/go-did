@@ -308,6 +308,7 @@ func TestCreateJWTVerifiablePresentation(t *testing.T) {
 		assert.Equal(t, nonce, token.PrivateClaims()["nonce"])
 		assert.Equal(t, []string{audience}, token.Audience())
 		assert.Equal(t, nbf.Unix(), token.NotBefore().Unix())
+		assert.Equal(t, nbf.Unix(), token.IssuedAt().Unix())
 		assert.Equal(t, exp.Unix(), token.Expiration().Unix())
 
 		// Verify VP structure
@@ -336,8 +337,10 @@ func TestCreateJWTVerifiablePresentation(t *testing.T) {
 		assert.NotEmpty(t, token.JwtID())
 		assert.Nil(t, token.PrivateClaims()["nonce"])
 		assert.Empty(t, token.Audience())
-		assert.NotZero(t, token.NotBefore()) // auto-set to time.Now() when IssuedAt is nil
-		assert.Zero(t, token.Expiration())   // exp not set when ExpiresAt is nil
+		assert.NotZero(t, token.NotBefore())             // auto-set to time.Now() when IssuedAt is nil
+		assert.NotZero(t, token.IssuedAt())              // auto-set to time.Now() when IssuedAt is nil
+		assert.Equal(t, token.NotBefore(), token.IssuedAt())
+		assert.Zero(t, token.Expiration()) // exp not set when ExpiresAt is nil
 
 		// Verify VP structure
 		assert.Nil(t, vp.Holder) // holder is optional

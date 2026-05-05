@@ -239,7 +239,8 @@ type PresentationOptions struct {
 	Nonce *string
 	// Audience specifies the intended audience (maps to 'aud' claim in JWT).
 	Audience *string
-	// IssuedAt specifies when the presentation was issued (maps to 'nbf' claim in JWT).
+	// IssuedAt specifies when the presentation was issued (maps to 'nbf' and 'iat' claims in JWT).
+	// Defaults to the current time when nil.
 	IssuedAt *time.Time
 	// ExpiresAt specifies when the presentation expires (maps to 'exp' claim in JWT).
 	// If nil, no expiration claim is added to the JWT.
@@ -287,11 +288,12 @@ func CreateJWTVerifiablePresentation(ctx context.Context, presenter ssi.URI, cre
 	if options.Audience != nil {
 		claims[jwt.AudienceKey] = *options.Audience
 	}
-	if options.IssuedAt == nil {
-		claims[jwt.NotBeforeKey] = time.Now().Unix()
-	} else {
-		claims[jwt.NotBeforeKey] = int(options.IssuedAt.Unix())
+	issuedAt := time.Now()
+	if options.IssuedAt != nil {
+		issuedAt = *options.IssuedAt
 	}
+	claims[jwt.NotBeforeKey] = int(issuedAt.Unix())
+	claims[jwt.IssuedAtKey] = int(issuedAt.Unix())
 
 	token, err := signer(ctx, claims, headers)
 	if err != nil {
