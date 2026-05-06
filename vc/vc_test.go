@@ -447,6 +447,7 @@ func TestCreateJWTVerifiableCredential(t *testing.T) {
 		assert.Equal(t, subjectDID.String(), claims[jwt.SubjectKey])
 		assert.Equal(t, template.ID.String(), claims[jwt.JwtIDKey])
 		assert.Equal(t, issuanceDate, claims[jwt.NotBeforeKey])
+		assert.Equal(t, issuanceDate, claims[jwt.IssuedAtKey])
 		assert.Equal(t, expirationDate, claims[jwt.ExpirationKey])
 		assert.Equal(t, map[string]interface{}{
 			"credentialSubject": template.CredentialSubject,

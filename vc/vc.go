@@ -416,6 +416,7 @@ func CreateJWTVerifiableCredential(ctx context.Context, template VerifiableCrede
 	}
 	claims := map[string]interface{}{
 		jwt.NotBeforeKey: template.IssuanceDate,
+		jwt.IssuedAtKey:  template.IssuanceDate,
 		jwt.IssuerKey:    template.Issuer.String(),
 		jwt.SubjectKey:   subjectDID.String(),
 		"vc":             vcMap,
