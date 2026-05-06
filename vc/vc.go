@@ -401,6 +401,7 @@ func WithCredentialSubjectAsObject() CreateCredentialOption {
 // CreateJWTVerifiableCredential creates a JWT Verifiable Credential from the given credential template.
 // For signing the actual JWT it calls the given signer, which must return the created JWT in string format.
 // Note: the signer is responsible for adding the right key claims (e.g. `kid`).
+// If template.IssuanceDate is the zero value, it defaults to the current time (mapped to both 'nbf' and 'iat' claims).
 func CreateJWTVerifiableCredential(ctx context.Context, template VerifiableCredential, signer JWTSigner, options ...CreateCredentialOption) (*VerifiableCredential, error) {
 	subjectDID, err := template.SubjectDID()
 	if err != nil {
@@ -414,9 +415,13 @@ func CreateJWTVerifiableCredential(ctx context.Context, template VerifiableCrede
 		"type":              template.Type,
 		"credentialSubject": template.CredentialSubject,
 	}
+	issuanceDate := template.IssuanceDate
+	if issuanceDate.IsZero() {
+		issuanceDate = time.Now()
+	}
 	claims := map[string]interface{}{
-		jwt.NotBeforeKey: template.IssuanceDate,
-		jwt.IssuedAtKey:  template.IssuanceDate,
+		jwt.NotBeforeKey: issuanceDate,
+		jwt.IssuedAtKey:  issuanceDate,
 		jwt.IssuerKey:    template.Issuer.String(),
 		jwt.SubjectKey:   subjectDID.String(),
 		"vc":             vcMap,

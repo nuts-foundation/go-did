@@ -470,6 +470,20 @@ func TestCreateJWTVerifiableCredential(t *testing.T) {
 		assert.Nil(t, claims[jwt.ExpirationKey])
 		assert.Nil(t, claims[jwt.JwtIDKey])
 	})
+	t.Run("IssuanceDate defaults to time.Now() when zero", func(t *testing.T) {
+		zeroIssuanceTemplate := template
+		zeroIssuanceTemplate.IssuanceDate = time.Time{}
+		var claims map[string]interface{}
+		_, err := CreateJWTVerifiableCredential(ctx, zeroIssuanceTemplate, func(_ context.Context, c map[string]interface{}, _ map[string]interface{}) (string, error) {
+			claims = c
+			return jwtCredential, nil
+		})
+		assert.NoError(t, err)
+		nbf, ok := claims[jwt.NotBeforeKey].(time.Time)
+		assert.True(t, ok)
+		assert.False(t, nbf.IsZero())
+		assert.Equal(t, nbf, claims[jwt.IssuedAtKey])
+	})
 	t.Run("WithCredentialSubjectAsObject", func(t *testing.T) {
 		t.Run("single credentialSubject", func(t *testing.T) {
 			var claims map[string]interface{}
