@@ -447,6 +447,7 @@ func TestCreateJWTVerifiableCredential(t *testing.T) {
 		assert.Equal(t, subjectDID.String(), claims[jwt.SubjectKey])
 		assert.Equal(t, template.ID.String(), claims[jwt.JwtIDKey])
 		assert.Equal(t, issuanceDate, claims[jwt.NotBeforeKey])
+		assert.Equal(t, issuanceDate, claims[jwt.IssuedAtKey])
 		assert.Equal(t, expirationDate, claims[jwt.ExpirationKey])
 		assert.Equal(t, map[string]interface{}{
 			"credentialSubject": template.CredentialSubject,
@@ -468,6 +469,20 @@ func TestCreateJWTVerifiableCredential(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Nil(t, claims[jwt.ExpirationKey])
 		assert.Nil(t, claims[jwt.JwtIDKey])
+	})
+	t.Run("IssuanceDate defaults to time.Now() when zero", func(t *testing.T) {
+		zeroIssuanceTemplate := template
+		zeroIssuanceTemplate.IssuanceDate = time.Time{}
+		var claims map[string]interface{}
+		_, err := CreateJWTVerifiableCredential(ctx, zeroIssuanceTemplate, func(_ context.Context, c map[string]interface{}, _ map[string]interface{}) (string, error) {
+			claims = c
+			return jwtCredential, nil
+		})
+		assert.NoError(t, err)
+		nbf, ok := claims[jwt.NotBeforeKey].(time.Time)
+		assert.True(t, ok)
+		assert.False(t, nbf.IsZero())
+		assert.Equal(t, nbf, claims[jwt.IssuedAtKey])
 	})
 	t.Run("WithCredentialSubjectAsObject", func(t *testing.T) {
 		t.Run("single credentialSubject", func(t *testing.T) {
