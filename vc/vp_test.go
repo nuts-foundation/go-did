@@ -303,6 +303,7 @@ func TestCreateJWTVerifiablePresentation(t *testing.T) {
 
 		// Verify JWT claims
 		token := vp.JWT()
+		assert.Equal(t, holderDID.String(), token.Issuer()) // holder is encoded as 'iss' (VC-DM 1.1 §6.3.1)
 		assert.Equal(t, presenterDID.String(), token.Subject())
 		assert.NotEmpty(t, token.JwtID())
 		assert.Equal(t, nonce, token.PrivateClaims()["nonce"])
@@ -310,6 +311,8 @@ func TestCreateJWTVerifiablePresentation(t *testing.T) {
 		assert.Equal(t, nbf.Unix(), token.NotBefore().Unix())
 		assert.Equal(t, nbf.Unix(), token.IssuedAt().Unix())
 		assert.Equal(t, exp.Unix(), token.Expiration().Unix())
+		// The holder must not be present as a member of the 'vp' object.
+		assert.NotContains(t, token.PrivateClaims()["vp"], "holder")
 
 		// Verify VP structure
 		assert.Equal(t, &holderDID, vp.Holder)
@@ -333,6 +336,7 @@ func TestCreateJWTVerifiablePresentation(t *testing.T) {
 
 		// Verify JWT claims
 		token := vp.JWT()
+		assert.Empty(t, token.Issuer()) // holder is optional, so no 'iss' claim
 		assert.Equal(t, presenterDID.String(), token.Subject())
 		assert.NotEmpty(t, token.JwtID())
 		assert.Nil(t, token.PrivateClaims()["nonce"])
