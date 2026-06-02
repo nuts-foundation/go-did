@@ -263,9 +263,6 @@ func CreateJWTVerifiablePresentation(ctx context.Context, presenter ssi.URI, cre
 		"@context": append([]ssi.URI{VCContextV1URI()}, options.AdditionalContexts...),
 		"type":     append([]ssi.URI{VerifiablePresentationTypeV1URI()}, options.AdditionalTypes...),
 	}
-	if options.Holder != nil {
-		verifiablePresentation["holder"] = options.Holder.String()
-	}
 	if len(credentials) > 0 {
 		verifiablePresentation["verifiableCredential"] = credentials
 	}
@@ -274,6 +271,11 @@ func CreateJWTVerifiablePresentation(ctx context.Context, presenter ssi.URI, cre
 		jwt.SubjectKey: presenter.String(),
 		jwt.JwtIDKey:   id.String(),
 		"vp":           verifiablePresentation,
+	}
+	// Per W3C VC Data Model v1.1 §6.3.1, the holder of a verifiable presentation is
+	// represented by the 'iss' claim, not by a 'holder' member of the 'vp' object.
+	if options.Holder != nil {
+		claims[jwt.IssuerKey] = options.Holder.String()
 	}
 	if options.ExpiresAt != nil {
 		claims[jwt.ExpirationKey] = int(options.ExpiresAt.Unix())
