@@ -93,8 +93,14 @@ func parseJWTCredential(raw string) (*VerifiableCredential, error) {
 		result.IssuanceDate = token.NotBefore()
 	}
 	// parse sub
+	// Per https://www.w3.org/TR/2022/REC-vc-data-model-20220303/#jwt-decoding the JWT 'sub' claim maps to
+	// credentialSubject.id. If both are present they must be equal; otherwise silently overwriting would mask
+	// issuer bugs and produce misleading downstream errors.
 	if token.Subject() != "" {
 		for _, credentialSubject := range result.CredentialSubject {
+			if existing, ok := credentialSubject["id"].(string); ok && existing != "" && existing != token.Subject() {
+				return nil, fmt.Errorf("JWT 'sub' claim (%s) does not match credentialSubject.id (%s)", token.Subject(), existing)
+			}
 			credentialSubject["id"] = token.Subject()
 		}
 	}
