@@ -309,7 +309,7 @@ func NewVerificationMethod(id DIDURL, keyType ssi.KeyType, controller DID, key c
 		Controller: controller,
 	}
 
-	if keyType == ssi.JsonWebKey2020 {
+	if keyType == ssi.JsonWebKey2020 || keyType == ssi.ECDSASECP256K1VerificationKey2019 {
 		keyAsJWK, err := jwk.Import(key)
 		if err != nil {
 			return nil, err
@@ -317,31 +317,16 @@ func NewVerificationMethod(id DIDURL, keyType ssi.KeyType, controller DID, key c
 		// Convert to JSON and back to fix encoding of key material to make sure
 		// an unmarshalled and newly created VerificationMethod are equal on object level.
 		// The format of PublicKeyJwk in verificationMethod is a map[string]interface{}.
-		// We can't use the Key.AsMap since the values of the map will all be internal jwk lib structs.
 		// After unmarshalling all the fields will be map[string]string.
 		keyAsJSON, err := json.Marshal(keyAsJWK)
 		if err != nil {
 			return nil, err
 		}
 		keyAsMap := map[string]interface{}{}
-		json.Unmarshal(keyAsJSON, &keyAsMap)
-
+		if err := json.Unmarshal(keyAsJSON, &keyAsMap); err != nil {
+			return nil, err
+		}
 		vm.PublicKeyJwk = keyAsMap
-	}
-	if keyType == ssi.ECDSASECP256K1VerificationKey2019 {
-		keyAsJWK, err := jwk.Import(key)
-		if err != nil {
-			return nil, err
-		}
-		keyAsJSON, err := json.Marshal(keyAsJWK)
-		if err != nil {
-			return nil, err
-		}
-		jwkAsMap := map[string]interface{}{}
-		if err := json.Unmarshal(keyAsJSON, &jwkAsMap); err != nil {
-			return nil, err
-		}
-		vm.PublicKeyJwk = jwkAsMap
 	}
 	if keyType == ssi.ED25519VerificationKey2018 || keyType == ssi.ED25519VerificationKey2020  {
 		ed25519Key, ok := key.(ed25519.PublicKey)
