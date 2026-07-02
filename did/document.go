@@ -1,15 +1,14 @@
 package did
 
 import (
-	"context"
 	"crypto"
 	"crypto/ed25519"
 	"encoding/json"
 	"errors"
 	"fmt"
 
-	"github.com/lestrrat-go/jwx/v2/jwa"
-	"github.com/lestrrat-go/jwx/v2/jwk"
+	"github.com/lestrrat-go/jwx/v3/jwa"
+	"github.com/lestrrat-go/jwx/v3/jwk"
 	"github.com/multiformats/go-multibase"
 	"strings"
 
@@ -311,7 +310,7 @@ func NewVerificationMethod(id DIDURL, keyType ssi.KeyType, controller DID, key c
 	}
 
 	if keyType == ssi.JsonWebKey2020 {
-		keyAsJWK, err := jwk.FromRaw(key)
+		keyAsJWK, err := jwk.Import(key)
 		if err != nil {
 			return nil, err
 		}
@@ -330,12 +329,16 @@ func NewVerificationMethod(id DIDURL, keyType ssi.KeyType, controller DID, key c
 		vm.PublicKeyJwk = keyAsMap
 	}
 	if keyType == ssi.ECDSASECP256K1VerificationKey2019 {
-		keyAsJWK, err := jwk.FromRaw(key)
+		keyAsJWK, err := jwk.Import(key)
 		if err != nil {
 			return nil, err
 		}
-		jwkAsMap, err := keyAsJWK.AsMap(context.Background())
+		keyAsJSON, err := json.Marshal(keyAsJWK)
 		if err != nil {
+			return nil, err
+		}
+		jwkAsMap := map[string]interface{}{}
+		if err := json.Unmarshal(keyAsJSON, &jwkAsMap); err != nil {
 			return nil, err
 		}
 		vm.PublicKeyJwk = jwkAsMap
@@ -398,7 +401,7 @@ func (v VerificationMethod) PublicKey() (crypto.PublicKey, error) {
 		if err != nil {
 			return nil, err
 		}
-		err = keyAsJWK.Raw(&pubKey)
+		err = jwk.Export(keyAsJWK, &pubKey)
 		if err != nil {
 			return nil, err
 		}
