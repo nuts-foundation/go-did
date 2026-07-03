@@ -5,6 +5,7 @@ import (
 	"crypto/ed25519"
 	"crypto/elliptic"
 	"crypto/rand"
+	"crypto/rsa"
 	"encoding/json"
 	"fmt"
 	"github.com/decred/dcrd/dcrec/secp256k1/v4"
@@ -150,6 +151,22 @@ func Test_Document(t *testing.T) {
 		publicKey, err := vm.PublicKey()
 		require.NoError(t, err)
 		require.NotNil(t, publicKey)
+	})
+
+	t.Run("JsonWebKey2020 with RSA key", func(t *testing.T) {
+		keyID := DIDURL{DID: actual.ID}
+		keyID.Fragment = "added-assertion-method-1"
+
+		privateKey, err := rsa.GenerateKey(rand.Reader, 2048)
+		require.NoError(t, err)
+
+		vm, err := NewVerificationMethod(keyID, ssi.JsonWebKey2020, actual.ID, privateKey.PublicKey)
+		require.NoError(t, err)
+
+		publicKey, err := vm.PublicKey()
+		require.NoError(t, err)
+		require.NotNil(t, publicKey)
+		require.IsType(t, &rsa.PublicKey{}, publicKey)
 	})
 
 	t.Run("ECDSASECP256K1VerificationKey2019", func(t *testing.T) {

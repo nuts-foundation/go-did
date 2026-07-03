@@ -357,7 +357,7 @@ func (v VerificationMethod) JWK() (jwk.Key, error) {
 }
 
 func (v VerificationMethod) PublicKey() (crypto.PublicKey, error) {
-	var pubKey crypto.PublicKey
+	var pubKey any
 	switch v.Type {
 	case ssi.ED25519VerificationKey2018, ssi.ED25519VerificationKey2020:
 		var keyBytes []byte
