@@ -9,8 +9,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/lestrrat-go/jwx/v2/jws"
-	"github.com/lestrrat-go/jwx/v2/jwt"
+	"github.com/lestrrat-go/jwx/v3/jws"
+	"github.com/lestrrat-go/jwx/v3/jwt"
 	"github.com/nuts-foundation/go-did/did"
 
 	ssi "github.com/nuts-foundation/go-did"
@@ -70,7 +70,8 @@ func parseJWTCredential(raw string) (*VerifiableCredential, error) {
 		return nil, err
 	}
 	var result VerifiableCredential
-	if innerVCInterf := token.PrivateClaims()["vc"]; innerVCInterf != nil {
+	var innerVCInterf interface{}
+	if err := token.Get("vc", &innerVCInterf); err == nil {
 		innerVCJSON, _ := json.Marshal(innerVCInterf)
 		err = json.Unmarshal(innerVCJSON, &result)
 		if err != nil {
@@ -78,8 +79,7 @@ func parseJWTCredential(raw string) (*VerifiableCredential, error) {
 		}
 	}
 	// parse exp
-	if _, ok := token.Get(jwt.ExpirationKey); ok {
-		exp := token.Expiration()
+	if exp, ok := token.Expiration(); ok {
 		result.ExpirationDate = &exp
 	}
 	// parse iss
@@ -89,13 +89,13 @@ func parseJWTCredential(raw string) (*VerifiableCredential, error) {
 		result.Issuer = *iss
 	}
 	// parse nbf
-	if _, ok := token.Get(jwt.NotBeforeKey); ok {
-		result.IssuanceDate = token.NotBefore()
+	if nbf, ok := token.NotBefore(); ok {
+		result.IssuanceDate = nbf
 	}
 	// parse sub
-	if token.Subject() != "" {
+	if sub, ok := token.Subject(); ok && sub != "" {
 		for _, credentialSubject := range result.CredentialSubject {
-			credentialSubject["id"] = token.Subject()
+			credentialSubject["id"] = sub
 		}
 	}
 	// parse jti

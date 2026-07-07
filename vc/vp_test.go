@@ -10,8 +10,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/lestrrat-go/jwx/v2/jwa"
-	"github.com/lestrrat-go/jwx/v2/jwt"
+	"github.com/lestrrat-go/jwx/v3/jwa"
+	"github.com/lestrrat-go/jwx/v3/jwt"
 	ssi "github.com/nuts-foundation/go-did"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -217,7 +217,8 @@ func TestParseVerifiablePresentation(t *testing.T) {
 		assert.Equal(t, JWTPresentationProofFormat, vp.Format())
 		assert.Equal(t, "did:example:ebfeb1f712ebc6f1c276e12ec21", vp.Holder.String())
 		assert.Equal(t, "urn:uuid:3978344f-8596-4c3a-a978-8fcaba3903c5", vp.ID.String())
-		assert.Equal(t, []string{"did:example:4a57546973436f6f6c4a4a57573"}, vp.JWT().Audience())
+		aud, _ := vp.JWT().Audience()
+		assert.Equal(t, []string{"did:example:4a57546973436f6f6c4a4a57573"}, aud)
 		assert.Len(t, vp.Type, 2)
 		assert.True(t, vp.IsType(ssi.MustParseURI("VerifiablePresentation")))
 		assert.True(t, vp.IsType(ssi.MustParseURI("CredentialManagerPresentation")))
@@ -257,7 +258,7 @@ func TestCreateJWTVerifiablePresentation(t *testing.T) {
 				return "", err
 			}
 		}
-		result, err := jwt.Sign(token, jwt.WithKey(jwa.ES256, keyPair))
+		result, err := jwt.Sign(token, jwt.WithKey(jwa.ES256(), keyPair))
 		if err != nil {
 			return "", err
 		}
@@ -303,16 +304,27 @@ func TestCreateJWTVerifiablePresentation(t *testing.T) {
 
 		// Verify JWT claims
 		token := vp.JWT()
-		assert.Equal(t, holderDID.String(), token.Issuer()) // holder is encoded as 'iss' (VC-DM 1.1 §6.3.1)
-		assert.Equal(t, presenterDID.String(), token.Subject())
-		assert.NotEmpty(t, token.JwtID())
-		assert.Equal(t, nonce, token.PrivateClaims()["nonce"])
-		assert.Equal(t, []string{audience}, token.Audience())
-		assert.Equal(t, nbf.Unix(), token.NotBefore().Unix())
-		assert.Equal(t, nbf.Unix(), token.IssuedAt().Unix())
-		assert.Equal(t, exp.Unix(), token.Expiration().Unix())
+		tokenIssuer, _ := token.Issuer()
+		assert.Equal(t, holderDID.String(), tokenIssuer) // holder is encoded as 'iss' (VC-DM 1.1 §6.3.1)
+		tokenSubject, _ := token.Subject()
+		assert.Equal(t, presenterDID.String(), tokenSubject)
+		tokenJwtID, _ := token.JwtID()
+		assert.NotEmpty(t, tokenJwtID)
+		var tokenNonce string
+		require.NoError(t, token.Get("nonce", &tokenNonce))
+		assert.Equal(t, nonce, tokenNonce)
+		tokenAudience, _ := token.Audience()
+		assert.Equal(t, []string{audience}, tokenAudience)
+		tokenNotBefore, _ := token.NotBefore()
+		assert.Equal(t, nbf.Unix(), tokenNotBefore.Unix())
+		tokenIssuedAt, _ := token.IssuedAt()
+		assert.Equal(t, nbf.Unix(), tokenIssuedAt.Unix())
+		tokenExpiration, _ := token.Expiration()
+		assert.Equal(t, exp.Unix(), tokenExpiration.Unix())
 		// The holder must not be present as a member of the 'vp' object.
-		assert.NotContains(t, token.PrivateClaims()["vp"], "holder")
+		var tokenVP map[string]interface{}
+		require.NoError(t, token.Get("vp", &tokenVP))
+		assert.NotContains(t, tokenVP, "holder")
 
 		// Verify VP structure
 		assert.Equal(t, &holderDID, vp.Holder)
@@ -336,15 +348,24 @@ func TestCreateJWTVerifiablePresentation(t *testing.T) {
 
 		// Verify JWT claims
 		token := vp.JWT()
-		assert.Empty(t, token.Issuer()) // holder is optional, so no 'iss' claim
-		assert.Equal(t, presenterDID.String(), token.Subject())
-		assert.NotEmpty(t, token.JwtID())
-		assert.Nil(t, token.PrivateClaims()["nonce"])
-		assert.Empty(t, token.Audience())
-		assert.NotZero(t, token.NotBefore())             // auto-set to time.Now() when IssuedAt is nil
-		assert.NotZero(t, token.IssuedAt())              // auto-set to time.Now() when IssuedAt is nil
-		assert.Equal(t, token.NotBefore(), token.IssuedAt())
-		assert.Zero(t, token.Expiration()) // exp not set when ExpiresAt is nil
+		tokenIssuer, _ := token.Issuer()
+		assert.Empty(t, tokenIssuer) // holder is optional, so no 'iss' claim
+		tokenSubject, _ := token.Subject()
+		assert.Equal(t, presenterDID.String(), tokenSubject)
+		tokenJwtID, _ := token.JwtID()
+		assert.NotEmpty(t, tokenJwtID)
+		var tokenNonce string
+		assert.Error(t, token.Get("nonce", &tokenNonce)) // nonce claim not set
+		tokenAudience, _ := token.Audience()
+		assert.Empty(t, tokenAudience)
+		tokenNotBefore, _ := token.NotBefore()
+		assert.NotZero(t, tokenNotBefore) // auto-set to time.Now() when IssuedAt is nil
+		tokenIssuedAt, _ := token.IssuedAt()
+		assert.NotZero(t, tokenIssuedAt) // auto-set to time.Now() when IssuedAt is nil
+		assert.Equal(t, tokenNotBefore, tokenIssuedAt)
+		tokenExpiration, expOk := token.Expiration()
+		assert.False(t, expOk) // exp not set when ExpiresAt is nil
+		assert.Zero(t, tokenExpiration)
 
 		// Verify VP structure
 		assert.Nil(t, vp.Holder) // holder is optional

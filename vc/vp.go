@@ -3,13 +3,14 @@ package vc
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/lestrrat-go/jwx/v2/jws"
-	"github.com/lestrrat-go/jwx/v2/jwt"
+	"github.com/lestrrat-go/jwx/v3/jws"
+	"github.com/lestrrat-go/jwx/v3/jwt"
 	ssi "github.com/nuts-foundation/go-did"
 	"github.com/nuts-foundation/go-did/internal/marshal"
 )
@@ -86,7 +87,8 @@ func parseJTWPresentation(raw string) (*VerifiablePresentation, error) {
 		return nil, err
 	}
 	var result VerifiablePresentation
-	if innerVPInterf := token.PrivateClaims()["vp"]; innerVPInterf != nil {
+	var innerVPInterf interface{}
+	if err := token.Get("vp", &innerVPInterf); err == nil {
 		innerVPJSON, _ := json.Marshal(innerVPInterf)
 		err = json.Unmarshal(innerVPJSON, &result)
 		if err != nil {
@@ -113,14 +115,14 @@ func parseJTWPresentation(raw string) (*VerifiablePresentation, error) {
 }
 
 func parseURIClaim(token jwt.Token, claim string) (*ssi.URI, error) {
-	if val, ok := token.Get(claim); ok {
-		if str, ok := val.(string); !ok {
-			return nil, fmt.Errorf("%s must be a string", claim)
-		} else {
-			return ssi.ParseURI(str)
+	var str string
+	if err := token.Get(claim, &str); err != nil {
+		if errors.Is(err, jwt.ClaimNotFoundError()) {
+			return nil, nil
 		}
+		return nil, fmt.Errorf("%s must be a string", claim)
 	}
-	return nil, nil
+	return ssi.ParseURI(str)
 }
 
 // Format returns the format of the presentation (e.g. jwt_vp or ldp_vp).
