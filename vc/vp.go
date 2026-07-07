@@ -120,7 +120,7 @@ func parseURIClaim(token jwt.Token, claim string) (*ssi.URI, error) {
 		if errors.Is(err, jwt.ClaimNotFoundError()) {
 			return nil, nil
 		}
-		return nil, fmt.Errorf("%s must be a string", claim)
+		return nil, fmt.Errorf("%s must be a string: %w", claim, err)
 	}
 	return ssi.ParseURI(str)
 }
