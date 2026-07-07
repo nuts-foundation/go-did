@@ -85,6 +85,13 @@ See `vc/vp_test.go` and `vc/vc_test.go` for examples.
 - `Ed25519VerificationKey2018`
 - `EcdsaSecp256k1VerificationKey2019` (pass build tag to enable: `-tags=jwx_es256k`)
 
+Note: as of the jwx v3 upgrade, RSA keys used as `JsonWebKey2020` are validated on creation and on parsing an
+existing `publicKeyJwk`, and are rejected if the modulus is smaller than 2048 bits. Earlier versions of this
+library did not perform this check, so a DID document containing a pre-existing RSA key below 2048 bits that
+resolved before will now fail to parse. This is a process-wide setting of the underlying `jwx` library; it can
+be lowered (not recommended) by calling `jwk.Configure(jwk.WithMinRSAModulusBits(n))` (from
+`github.com/lestrrat-go/jwx/v3/jwk`) once during application startup, before any keys are parsed.
+
 ## Installation
 ```
 go get github.com/nuts-foundation/go-did

@@ -302,6 +302,9 @@ type VerificationMethod struct {
 
 // NewVerificationMethod is a convenience method to easily create verificationMethods based on a set of given params.
 // It automatically encodes the provided public key based on the keyType.
+// For JsonWebKey2020 and EcdsaSecp256k1VerificationKey2019, RSA keys are rejected if their modulus is smaller
+// than 2048 bits. This floor is a process-wide jwx setting and can be lowered by calling
+// jwk.Configure(jwk.WithMinRSAModulusBits(n)) before any keys are parsed.
 func NewVerificationMethod(id DIDURL, keyType ssi.KeyType, controller DID, key crypto.PublicKey) (*VerificationMethod, error) {
 	vm := &VerificationMethod{
 		ID:         id,
@@ -344,6 +347,10 @@ func NewVerificationMethod(id DIDURL, keyType ssi.KeyType, controller DID, key c
 }
 
 // JWK returns the key described by the VerificationMethod as JSON Web Key.
+// It rejects RSA keys with a modulus smaller than 2048 bits, even if PublicKeyJwk already contains one
+// (e.g. parsed from a DID document created before this validation was introduced). This floor is a
+// process-wide jwx setting and can be lowered by calling jwk.Configure(jwk.WithMinRSAModulusBits(n))
+// before any keys are parsed.
 func (v VerificationMethod) JWK() (jwk.Key, error) {
 	if v.PublicKeyJwk == nil {
 		return nil, nil
