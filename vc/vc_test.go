@@ -205,6 +205,13 @@ func TestCredentialStatus_UnmarshalJSON(t *testing.T) {
 		assert.Equal(t, "urn:uuid:7facf41c-1dc5-486b-87e6-587d015e76d7?bit-index=10", actual.ID.String())
 		assert.Greater(t, len(actual.raw), 1)
 	})
+	t.Run("type error names CredentialStatus", func(t *testing.T) {
+		var actual CredentialStatus
+
+		err := json.Unmarshal([]byte(`"not an object"`), &actual)
+
+		assert.EqualError(t, err, "json: cannot unmarshal string into Go value of type vc.CredentialStatus")
+	})
 }
 
 func TestCredentialStatus_Raw(t *testing.T) {
