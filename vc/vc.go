@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"reflect"
 	"strings"
 	"time"
 
@@ -200,16 +201,23 @@ type CredentialStatus struct {
 }
 
 func (cs *CredentialStatus) UnmarshalJSON(input []byte) error {
-	type alias *CredentialStatus
-	a := alias(cs)
-	err := json.Unmarshal(input, a)
-	if err != nil {
+	// Unmarshal into a value alias (not a pointer alias): since Go 1.27 encoding/json is backed by
+	// encoding/json/v2, which resolves UnmarshalJSON through a named pointer type and would recurse forever.
+	type alias CredentialStatus
+	var a alias
+	if err := json.Unmarshal(input, &a); err != nil {
+		// report the public type instead of the alias in type errors, so error messages stay stable
+		var typeErr *json.UnmarshalTypeError
+		if errors.As(err, &typeErr) {
+			typeErr.Type = reflect.TypeFor[CredentialStatus]()
+		}
 		return err
 	}
+	*cs = CredentialStatus(a)
 
 	// keep compacted copy of the input
 	buf := new(bytes.Buffer)
-	if err = json.Compact(buf, input); err != nil {
+	if err := json.Compact(buf, input); err != nil {
 		// should never happen, already parsed as valid json
 		return err
 	}
